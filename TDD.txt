@@ -1,0 +1,117 @@
+# Technical Design Document: Stateless Retirement Monte Carlo Simulator
+
+---
+
+## 1. System Overview
+
+This project aims to build a **stateless, client-side web application** that allows users to simulate the success rate of various portfolio configurations against complex, multi-phase spending schedules over long time horizons (e.g., 55 years). 
+
+The tool utilizes a **Monte Carlo simulation** engine running entirely in the user's browser, eliminating the need for a backend, database, or user accounts. 
+
+### Core Guiding Principles
+* **Zero Footprint:** No user data is stored on any server.
+* **Vibe Coding Friendly:** The architecture is kept modular and simple so an AI agent can easily generate, debug, and iterate on the code.
+* **High Fidelity:** Despite being a browser tool, the math handles asset correlations, multi-phase spending, and inflation variance accurately.
+
+---
+
+## 2. Architecture & Tech Stack
+
+To maintain the "stateless" requirement while providing a modern, responsive UI, the following stack is proposed:
+
+* **Framework:** React (Next.js is optional but a single-file Vite + React setup is lighter for a purely client-side tool).
+* **Styling:** Tailwind CSS (for fast, utility-first layout building).
+* **Math & Stats:** `mathjs` or `simple-statistics` for matrix operations (Cholesky decomposition).
+* **Charts:** `Chart.js` or `Recharts` to render the Monte Carlo "spaghetti plot" of portfolio trajectories.
+
+---
+
+## 3. Data Strategy: Fetching & Handling Stock Data
+
+Because the app is stateless and runs in the browser, calling live financial APIs (like Alpha Vantage or Yahoo Finance) directly is problematic due to CORS restrictions and the exposure of private API keys.
+
+### Proposed Hybrid Approach
+
+1.  **The Local Defaults Table (The "Hardcoded" fallback):**
+    The app will maintain a JSON dictionary of major asset classes and popular tickers (VT, QQQ, AVUV, BND, GLD, BTC). This dictionary will contain pre-calculated:
+    * **Expected Annual Return ($\mu$)**
+    * **Annual Volatility ($\sigma$)**
+    * **Default Correlation Matrix ($\rho$)**
+    
+2.  **User Overrides:**
+    If a user enters a ticker not in the local dictionary, the UI will prompt them to manually enter an estimated return and volatility.
+
+3.  **Optional: Live Historical Fetching (Client-Side):**
+    If the user *wants* real historical data for custom tickers, the tool can use a public, CORS-enabled endpoint or a rapidAPI endpoint where the user supplies *their own* API key in a settings input (stored only in the browser's `localStorage`).
+    * **Algorithm to convert raw data to inputs:** If historical monthly prices are fetched, the tool will calculate:
+        * $Log\ Returns = \ln(P_t / P_{t-1})$
+        * $\mu = \text{mean}(Log\ Returns) \times 12$
+        * $\sigma = \text{std\_dev}(Log\ Returns) \times \sqrt{12}$
+
+---
+
+## 4. The Simulation Algorithm (Under the Hood)
+
+The simulation runs a loop for $N$ iterations (e.g., 5,000 or 10,000). For each iteration, it simulates the portfolio balance year-by-year across the total requested timeline.
+
+### Step 1: Handling Asset Correlation
+To simulate realistic market conditions where stocks crash together but gold or cash might stay flat, we cannot simply generate independent random returns for each asset. We must use a **Multivariate Normal Distribution**.
+
+1.  **Define the Correlation Matrix ($R$):** An $n \times n$ matrix defining how the $n$ assets move together.
+2.  **Define the Covariance Matrix ($\Sigma$):** Transformed from correlation using the standard deviations ($\sigma$) of each asset: 
+    $$\Sigma_{i,j} = R_{i,j} \times \sigma_i \times \sigma_j$$
+3.  **Cholesky Decomposition:** Since drawing from a multivariate normal distribution directly in JS can be slow without heavy libraries, we use the Cholesky decomposition ($L$) of the covariance matrix, where $\Sigma = L L^T$.
+4.  **Generating Correlated Returns:** Every simulated year, we generate a vector of independent standard normal random variables $Z \sim N(0,1)$. We then calculate the correlated returns vector $X$ as:
+    $$X = \mu + L Z$$
+    Where $\mu$ is the vector of expected returns for the assets.
+
+### Step 2: The Multi-Phase Spending Engine
+The spending engine maps the array of "Phases" into a flat array where index `i` represents the real dollar spend for year `i`.
+
+**Logic Example:**
+* Input: Phase 1 ($50k for 15 years), Phase 2 ($30k for 40 years).
+* Flattened Array: `[50k, 50k ... (15 times) ... 30k, 30k ... (40 times)]`
+
+During the simulation loop for Year $t$:
+1.  **Inflation adjustment:** Determine cumulative inflation $I_t = \prod_{k=1}^{t} (1 + \text{inflation}_k)$.
+2.  **Nominal Spend:** $S_{nominal} = \text{FlattenedSpend}[t] \times I_t$.
+
+### Step 3: The Year-by-Year Loop
+For each simulation (run $j$ from $1$ to $N$):
+1.  Set $Portfolio\_Balance = \text{Initial Deposit}$.
+2.  For each year $t$ from $1$ to $\text{Total Years}$:
+    * Generate the vector of correlated returns $X$ for that year.
+    * Calculate the total portfolio growth factor: $G = \sum (\text{Weight}_i \times X_i)$.
+    * Apply growth: $Portfolio = Portfolio \times (1 + G)$.
+    * Deduct Nominal Spending: $Portfolio = Portfolio - S_{nominal}$.
+    * If $Portfolio \le 0$, mark this simulation run as a **Failure** and break the loop.
+3.  Calculate **Success Rate** = $(\text{Total Successful Runs} / N) \times 100$.
+
+---
+
+## 5. UI/UX Component Breakdown
+
+### Component 1: Portfolio Setup
+* **Table Rows:** Dynamic array of inputs.
+* **State:** Array of objects `[{ ticker: 'VT', value: 200000, return: 0.09, vol: 0.17 }]`.
+* **Auto-Calculations:** Displays running total of portfolio value and percentage weight of each row in real-time.
+
+### Component 2: Multi-Phase Spending Builder
+* **Inputs:** `[ Spending Amount ]` and `[ Duration in Years ]`.
+* **Action:** "Add Phase" button creates a new row.
+* **Guardrails:** Total years automatically sums up at the bottom to show the user the total duration of their retirement.
+
+### Component 3: Configuration & Execution
+* **Inputs:** Expected baseline inflation, number of simulations (dropdown: 1k, 5k, 10k).
+* **Action:** "Run Simulation" button.
+* **State:** Triggers the Web Worker (optional but recommended for large $N$ so the UI doesn't freeze) to run the math loop.
+
+### Component 4: Results Display (Output)
+* **Hero Stat:** Large percentage success rate with a color gradient (Red < 70%, Yellow 70-90%, Green > 90%).
+* **The Line Chart:** Displays a subset of 50-100 simulated paths showing the distribution of wealth over time.
+
+---
+
+## 6. Future Considerations (Phase 2)
+* **Taxes:** Adding a flat percentage tax on withdrawals.
+* **Shareable URLs:** Since the app is stateless, encoding the user's inputs into a base64 string and appending it to the URL hash (e.g., `app.com/#config=xyz...`) allows users to bookmark or share their specific scenario without a database.
