@@ -217,7 +217,7 @@ Decompose $\Sigma = L L^T$ where $L$ is lower triangular.
 
 For each simulated year:
 
-1. Generate independent standard normal random variables: $Z \sim N(0, 1)$ (one per asset)
+1. Generate independent standard normal random variables: $Z \sim N(0, 1)$ (one per unique asset)
 2. Transform to correlated returns: $X = \mu + L \cdot Z$
 
 Where:
@@ -227,6 +227,30 @@ Where:
 - $X$ = resulting correlated returns for this year
 
 **Result:** $X$ contains realistic returns where assets move together according to historical correlations.
+
+**Pre-Processing: Aggregate Duplicate Tickers**
+
+Before simulation starts, aggregate portfolio entries by ticker:
+
+```javascript
+// User input
+const input = [
+  { ticker: 'VT', value: 100000 },
+  { ticker: 'VT', value: 50000 },
+  { ticker: 'BND', value: 75000 }
+];
+
+// Aggregated (used for simulation)
+const aggregated = [
+  { ticker: 'VT', value: 150000 },  // Combined
+  { ticker: 'BND', value: 75000 }
+];
+```
+
+This is mathematically equivalent but more efficient:
+- Fewer positions to track during simulation
+- Correlation matrix is smaller (2×2 instead of 3×3)
+- Same result: `VT₁ × (1+r) + VT₂ × (1+r) = (VT₁ + VT₂) × (1+r)`
 
 ### Step 2: Multi-Phase Spending Engine
 
@@ -269,11 +293,18 @@ Where:
 #### Pseudocode
 
 ```
+# Pre-processing (before simulation loop)
+Aggregated_Portfolio = AggregateDuplicateTickers(User_Input)
+# Example: [VT:$100k, VT:$50k, BND:$75k] → [VT:$150k, BND:$75k]
+
+Initial_Deposit = Sum(Aggregated_Portfolio values)
+n = Number of unique tickers
+
 For each simulation run j = 1 to N:
     Portfolio_Balance = Initial_Deposit
 
     For each year t = 1 to Total_Years:
-        # 1. Generate returns for this year
+        # 1. Generate returns for this year (one per unique ticker)
         Z = vector of n independent standard normals
         X = μ + L · Z    # Correlated returns
 
@@ -367,30 +398,54 @@ Calculate aggregate statistics:
 - Ticker dropdown: VT, QQQ, AVUV, BND, GLD, BTC
 - Auto-calculated fields (read-only):
   - Total portfolio value
-  - % weight of each asset
+  - % weight of each row (based on individual values)
   - Expected return (calculated from CSV data)
   - Volatility (calculated from CSV data)
 
+**Display Notes:**
+- Table shows individual entries exactly as user entered them (including duplicates)
+- If same ticker appears multiple times, each row displays separately
+- User sees: "VT: $100,000 (40%)" and "VT: $50,000 (20%)" as separate rows
+- Behind the scenes: aggregated to VT: $150,000 (60%) for simulation
+
 **State Management:**
 ```javascript
-const [portfolio, setPortfolio] = useState([
+// User input (allows duplicates for easy data entry)
+const [portfolioInput, setPortfolioInput] = useState([
   { ticker: 'VT', value: 200000, mu: 0.09, sigma: 0.17 },
-  { ticker: 'BND', value: 100000, mu: 0.04, sigma: 0.05 }
+  { ticker: 'BND', value: 100000, mu: 0.04, sigma: 0.05 },
+  { ticker: 'VT', value: 50000, mu: 0.09, sigma: 0.17 }  // Duplicate OK
 ]);
+
+// Aggregated for simulation (duplicates combined)
+const aggregatedPortfolio = [
+  { ticker: 'VT', value: 250000, mu: 0.09, sigma: 0.17 },  // $200k + $50k
+  { ticker: 'BND', value: 100000, mu: 0.04, sigma: 0.05 }
+];
 ```
+
+**Note:** Duplicates are allowed for data entry (users can copy-paste from multiple accounts). Before running simulation, duplicate tickers are aggregated by summing their values. This is mathematically equivalent and computationally more efficient.
 
 **Validation:**
 - Total portfolio value must be > $0
 - Each asset value must be > $0
-- Cannot add same ticker twice
+- Duplicate tickers are allowed (users may have same ticker in multiple accounts)
 - Show error messages inline
 
 **Data Loading:**
 When user selects ticker from dropdown:
-1. Fetch `/data/{TICKER}.csv`
+1. Fetch `/data/{TICKER}.csv` (or use cached data if already loaded)
 2. Calculate μ and σ from historical returns
 3. Update portfolio state with calculated values
 4. Display "Loading..." state during fetch
+
+**Handling Duplicates:**
+If user adds the same ticker multiple times (e.g., VT in 401k and IRA):
+- CSV is only fetched once (cached after first load)
+- Display shows individual entries (as user entered them)
+- Before simulation, aggregate by ticker: sum all values for same ticker
+- Example: `[VT: $100k, VT: $50k, BND: $75k]` → `[VT: $150k, BND: $75k]`
+- Simulation runs on aggregated portfolio (more efficient)
 
 ### Component 2: Multi-Phase Spending Builder
 
@@ -450,18 +505,36 @@ If validation fails, disable button and show error messages.
 
 **Execution Flow:**
 1. User clicks "Run Simulation"
-2. Button shows loading state: "Simulating... X%"
-3. Spawn Web Worker with simulation parameters
-4. Worker sends progress updates every 10% (1,000 / 5,000 / 10,000)
-5. Worker returns results when complete
-6. Display results in Component 4
+2. Pre-process portfolio: aggregate duplicate tickers
+   ```javascript
+   function aggregatePortfolio(portfolio) {
+     const aggregated = {};
+     portfolio.forEach(asset => {
+       if (aggregated[asset.ticker]) {
+         aggregated[asset.ticker].value += asset.value;
+       } else {
+         aggregated[asset.ticker] = { ...asset };
+       }
+     });
+     return Object.values(aggregated);
+   }
+   ```
+3. Button shows loading state: "Simulating... X%"
+4. Spawn Web Worker with aggregated portfolio
+5. Worker sends progress updates every 10%
+6. Worker returns results when complete
+7. Display results in Component 4
 
 **Web Worker Communication:**
 ```javascript
 // Main thread
 const worker = new Worker('simulation-worker.js');
+
+// Aggregate portfolio before sending to worker
+const aggregated = aggregatePortfolio(portfolioInput);
+
 worker.postMessage({
-  portfolio: [...],
+  portfolio: aggregated,  // Aggregated portfolio (duplicates combined)
   phases: [...],
   inflation: 0.03,
   iterations: 10000
@@ -548,12 +621,13 @@ Fill area between bands with subtle shading.
 - **Deliverable:** 6 CSV files with maximum historical data
 
 **1. Simulation Engine** (core math)
+- Implement portfolio aggregation function (combine duplicate tickers)
 - Implement correlation matrix calculation
 - Implement Cholesky decomposition
 - Implement correlated random return generation
 - Implement year-by-year simulation logic
 - Create Web Worker wrapper
-- Unit tests for math functions
+- Unit tests for math functions (including aggregation)
 - **Deliverable:** `simulation-engine.js` and `simulation-worker.js`
 
 **2. Portfolio Setup UI**
@@ -641,7 +715,7 @@ fire-calculator/
 - ✅ At least 1 asset
 - ✅ Total value > $0
 - ✅ Each asset value > $0
-- ❌ Cannot add same ticker twice
+- ✅ Duplicate tickers allowed (same ticker can appear multiple times for different accounts)
 
 **Spending Phases:**
 - ✅ At least 1 phase
@@ -751,6 +825,30 @@ QQQ monthly returns: [0.025, -0.015, 0.032, ...]
 Correlation(VT, QQQ) = 0.95 (highly correlated)
 ```
 
+**Portfolio Aggregation (Duplicate Tickers):**
+```
+User Input:
+[VT: $100,000, VT: $50,000, BND: $75,000]
+
+Aggregated for Simulation:
+[VT: $150,000, BND: $75,000]
+
+Mathematical Equivalence (Year 1 with VT return = +10%, BND return = +3%):
+
+Method 1 (separate):
+VT₁: $100k × 1.10 = $110k
+VT₂: $50k × 1.10 = $55k
+BND: $75k × 1.03 = $77.25k
+Total: $242.25k
+
+Method 2 (aggregated):
+VT: $150k × 1.10 = $165k
+BND: $75k × 1.03 = $77.25k
+Total: $242.25k
+
+✓ Same result, but Method 2 is more efficient
+```
+
 ### Performance Benchmarks (Target)
 
 | Metric | Target | Notes |
@@ -765,6 +863,7 @@ Correlation(VT, QQQ) = 0.95 (highly correlated)
 ### Testing Checklist
 
 **Unit Tests:**
+- [ ] Portfolio aggregation (duplicate ticker combining)
 - [ ] Correlation matrix calculation
 - [ ] Cholesky decomposition
 - [ ] Return/volatility calculations from CSV
@@ -780,6 +879,8 @@ Correlation(VT, QQQ) = 0.95 (highly correlated)
 **Manual Testing:**
 - [ ] Portfolio with 1 asset works
 - [ ] Portfolio with 6 assets works
+- [ ] Portfolio with duplicate tickers (e.g., VT appears 3 times) works
+- [ ] Duplicate tickers show separately in UI but aggregate for simulation
 - [ ] Single phase spending works
 - [ ] Multi-phase spending works
 - [ ] Validation errors display correctly
