@@ -1,0 +1,16 @@
+{
+  "name": "fire-calculator",
+  "version": "0.1.0",
+  "description": "Stateless Retirement Monte Carlo Simulator",
+  "type": "module",
+  "scripts": {
+    "test:engine": "node src/lib/simulation-engine.test.js",
+    "test:simulation": "node src/lib/test-simulation.js",
+    "test:data": "node scripts/test-data-script.js",
+    "update-data": "node scripts/update-data.js",
+    "generate-sample-data": "node scripts/generate-sample-data.js"
+  },
+  "keywords": ["retirement", "monte-carlo", "fire", "calculator"],
+  "author": "",
+  "license": "MIT"
+}
