@@ -180,7 +180,7 @@ class TwelveDataSource {
       outputsize: '5000',  // Request maximum available
       apikey: this.apiKey,
       format: 'JSON',
-      adjusted: 'true'     // Include dividend adjustments
+      adjust: 'all'        // Adjust for splits and dividends (per Twelve Data docs)
     });
 
     const url = `${endpoint}?${params}`;
@@ -198,12 +198,28 @@ class TwelveDataSource {
       throw new Error(`Unexpected response format: ${JSON.stringify(data).substring(0, 200)}`);
     }
 
+    // DEBUG: Log available fields in the first data point
+    if (data.values.length > 0) {
+      console.log(`  📋 Available fields:`, Object.keys(data.values[0]).join(', '));
+    }
+
     // Transform to standard format
-    // When adjusted=true, Twelve Data returns adjusted close prices in the 'close' field
-    const prices = data.values.map(item => ({
-      date: item.datetime,
-      close: parseFloat(item.close)  // Now includes dividend adjustments
-    }));
+    // With adjust=all parameter, Twelve Data returns adjusted prices in the 'close' field
+    const prices = data.values.map(item => {
+      if (item.close === undefined) {
+        throw new Error(`No price field found. Available: ${Object.keys(item).join(', ')}`);
+      }
+
+      if (data.values.indexOf(item) === 0) {
+        console.log(`  ✓ Using 'close' field (adjusted with adjust=all parameter)`);
+        console.log(`     Includes dividends and splits`);
+      }
+
+      return {
+        date: item.datetime,
+        close: parseFloat(item.close)
+      };
+    });
 
     // Sort by date ascending (oldest first)
     prices.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -274,13 +290,30 @@ class AlphaVantageSource {
       throw new Error(`No time series data found. Available keys: ${Object.keys(data).join(', ')}`);
     }
 
+    // DEBUG: Log available fields
+    const sampleEntry = Object.values(timeSeries)[0];
+    if (sampleEntry) {
+      console.log(`  📋 Available fields:`, Object.keys(sampleEntry).join(', '));
+    }
+
     // Transform to standard format
-    const prices = Object.entries(timeSeries).map(([date, values]) => ({
-      date: date,
-      close: isCrypto
-        ? parseFloat(values['4a. close (USD)'])
-        : parseFloat(values['5. adjusted close'])
-    }));
+    // Alpha Vantage provides separate 'adjusted close' field that includes dividends
+    const prices = Object.entries(timeSeries).map(([date, values], index) => {
+      if (index === 0) {
+        if (isCrypto) {
+          console.log(`  ✓ Using '4a. close (USD)' field for crypto`);
+        } else {
+          console.log(`  ✓ Using '5. adjusted close' field (includes dividends and splits)`);
+        }
+      }
+
+      return {
+        date: date,
+        close: isCrypto
+          ? parseFloat(values['4a. close (USD)'])
+          : parseFloat(values['5. adjusted close'])
+      };
+    });
 
     // Sort by date ascending (oldest first)
     prices.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -525,6 +558,95 @@ async function main() {
     return sum + stats.size;
   }, 0);
   console.log(`💾 Total size: ${(totalSize / 1024).toFixed(1)} KB`);
+
+  // Validate returns to check if data includes dividends
+  if (successful.length > 0) {
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 Data Validation - Checking Returns');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+    const validateReturn = (ticker, filepath) => {
+      try {
+        const csvContent = fs.readFileSync(filepath, 'utf8');
+        const lines = csvContent.trim().split('\n').slice(1); // Skip header
+
+        if (lines.length < 2) return null;
+
+        const prices = lines.map(line => {
+          const [date, close] = line.split(',');
+          return { date, close: parseFloat(close) };
+        });
+
+        // Calculate annualized return
+        const returns = [];
+        for (let i = 1; i < prices.length; i++) {
+          const logReturn = Math.log(prices[i].close / prices[i - 1].close);
+          returns.push(logReturn);
+        }
+
+        const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+        const annualReturn = meanReturn * 12;
+
+        return annualReturn;
+      } catch (err) {
+        return null;
+      }
+    };
+
+    // Expected returns for validation (with dividends included)
+    const expectedReturns = {
+      'VT': { min: 0.07, max: 0.10, name: 'Total World Stock' },
+      'QQQ': { min: 0.11, max: 0.15, name: 'Nasdaq 100' },
+      'BND': { min: 0.025, max: 0.045, name: 'Total Bond Market' },
+      'AVUV': { min: 0.09, max: 0.13, name: 'Small Cap Value' },
+      'GLD': { min: 0.04, max: 0.08, name: 'Gold' }
+    };
+
+    let hasWarnings = false;
+
+    successful.forEach(r => {
+      const filepath = path.join(CONFIG.outputDir, `${r.ticker}.csv`);
+      if (!fs.existsSync(filepath)) return;
+
+      const annualReturn = validateReturn(r.ticker, filepath);
+      if (annualReturn === null) return;
+
+      const returnPct = (annualReturn * 100).toFixed(2);
+      const expected = expectedReturns[r.ticker];
+
+      if (expected) {
+        const isInRange = annualReturn >= expected.min && annualReturn <= expected.max;
+
+        if (isInRange) {
+          console.log(`✓ ${r.ticker} (${expected.name}): ${returnPct}% - Looks good!`);
+        } else {
+          console.log(`⚠️  ${r.ticker} (${expected.name}): ${returnPct}%`);
+          console.log(`   Expected: ${(expected.min * 100).toFixed(1)}%-${(expected.max * 100).toFixed(1)}%`);
+
+          if (annualReturn < expected.min - 0.02) {
+            console.log(`   🔴 WARNING: Return is TOO LOW - may be missing DIVIDENDS!`);
+            hasWarnings = true;
+          } else if (annualReturn > expected.max + 0.02) {
+            console.log(`   ⚠️  Return is higher than expected (unusual but possible)`);
+          }
+        }
+      } else {
+        console.log(`ℹ️  ${r.ticker}: ${returnPct}% (no validation range available)`);
+      }
+    });
+
+    if (hasWarnings) {
+      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('⚠️  DIVIDEND WARNING');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      console.log('Some returns are suspiciously LOW, suggesting dividends may NOT be included.');
+      console.log('This will cause the simulation to UNDERESTIMATE portfolio performance.\n');
+      console.log('SOLUTIONS:\n');
+      console.log('1. Try Alpha Vantage: npm run update-data -- --source=alphavantage');
+      console.log('2. Check Twelve Data documentation for adjusted price support');
+      console.log('3. For testing: npm run generate-best-data (synthetic but accurate)\n');
+    }
+  }
 
   console.log('\n✅ Done!\n');
 
