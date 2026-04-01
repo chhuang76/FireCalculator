@@ -31,25 +31,56 @@ To maintain the "stateless" requirement while providing a modern, responsive UI,
 
 Because the app is stateless and runs in the browser, calling live financial APIs (like Alpha Vantage or Yahoo Finance) directly is problematic due to CORS restrictions and the exposure of private API keys.
 
-### Proposed Hybrid Approach
+### Static Historical Data Files (Primary Approach)
 
-1.  **Historical Data Fetching (Primary Method):**
-    The app will fetch historical price data for user-selected assets to calculate:
-    * **Expected Annual Return ($\mu$)**
-    * **Annual Volatility ($\sigma$)**
-    * **Pairwise Correlation Matrix ($\rho$)** - calculated from historical returns of all assets in the portfolio
+To maintain true statelessness and eliminate API dependencies at runtime, the app will use **pre-fetched static historical data files** stored locally.
 
-    * **Algorithm to convert raw data to inputs:** Historical monthly prices will be used to calculate:
+1.  **Data Files Structure:**
+    * Store historical monthly price data as CSV files in `public/data/`
+    * One file per supported asset: `VT.csv`, `QQQ.csv`, `AVUV.csv`, `BND.csv`, `GLD.csv`, `BTC.csv`
+    * **CSV format:** `date,close` (minimal two-column format for Phase 1)
+    * Example:
+      ```csv
+      date,close
+      2015-01-01,45.67
+      2015-02-01,46.01
+      2015-03-01,46.89
+      ```
+    * Covers maximum available historical data for each ticker (varies by asset age)
+    * Total estimated size: < 300KB for all assets combined
+
+2.  **Data Update Process:**
+    * Monthly data refresh using a separate Node.js script (`scripts/update-data.js`)
+    * Developer manually runs script to fetch latest data from Twelve Data API (or similar)
+    * Script converts data to CSV format (`date,close` for Phase 1) and overwrites existing files
+    * **Script Flexibility:** Designed with configurable field mapping to easily add more columns (e.g., `open,high,low,volume,adjusted_close`) in future phases
+    * Developer commits updated files to git repository
+    * Manual process - no automation needed for Phase 1
+
+3.  **Runtime Calculation:**
+    * App loads CSV files on demand when user adds an asset to portfolio
+    * Calculates statistics from loaded data:
         * $Log\ Returns = \ln(P_t / P_{t-1})$
         * $\mu = \text{mean}(Log\ Returns) \times 12$
         * $\sigma = \text{std\_dev}(Log\ Returns) \times \sqrt{12}$
-        * $\rho_{i,j} = \text{correlation}(Returns_i, Returns_j)$
+        * $\rho_{i,j} = \text{correlation}(Returns_i, Returns_j)$ - calculated across all assets in portfolio
 
-2.  **The Local Defaults Table (Fallback):**
-    The app will maintain a JSON dictionary of major asset classes and popular tickers (VT, QQQ, AVUV, BND, GLD, BTC) with pre-calculated values as fallback when historical data is unavailable.
+4.  **Benefits:**
+    * ✅ No API calls at runtime (instant loading, no rate limits)
+    * ✅ No CORS issues
+    * ✅ Works completely offline
+    * ✅ Truly stateless (no backend needed)
+    * ✅ Zero runtime costs
+    * ✅ Faster user experience (no API latency)
 
-3.  **User Overrides:**
-    If a user enters a ticker not in the local dictionary and historical data cannot be fetched, the UI will prompt them to manually enter an estimated return and volatility.
+5.  **Limitations:**
+    * Only supports pre-defined tickers (VT, QQQ, AVUV, BND, GLD, BTC)
+    * Data becomes stale (requires monthly updates)
+    * Cannot support arbitrary user-entered tickers
+
+6.  **Future Enhancement (Phase 2):**
+    * Optional API integration for custom tickers via serverless proxy
+    * For Phase 1, focus on the 6 pre-defined assets only
 
 ---
 
@@ -137,24 +168,9 @@ For each simulation (run $j$ from $1$ to $N$):
 
 ## 7. Open Questions & Decisions Needed
 
-### 7.1 Historical Data Implementation Details
-**Sub-questions from correlation/data fetching decision:**
-- **Data Source & CORS:** Which API to use? How to handle CORS? User-provided API key or proxy/backend?
-- **Fallback Strategy:** What if historical data unavailable (e.g., BTC, custom tickers)? Hardcoded defaults or manual entry?
-- **Historical Period:** How many years of data? Monthly or daily returns?
-- **Mixed Assets:** How to build complete correlation matrix when some assets have data and others don't?
+**Status:** ✅ All design questions have been answered. Ready for implementation.
 
-**Decision:** [PENDING]
-
-### 7.2 Hardcoded Defaults Data
-**Question:** Do pre-calculated μ, σ, and correlation matrix values exist for default tickers (VT, QQQ, AVUV, BND, GLD, BTC)?
-
-**Options:**
-- [ ] Client provides existing data
-- [ ] Research and calculate from historical data
-- [ ] Use industry-standard assumptions
-
-**Decision:** [PENDING]
+---
 
 ---
 
@@ -164,12 +180,22 @@ For each simulation (run $j$ from $1$ to $N$):
 **Decision:** ✅ Phase 1 uses a fixed inflation rate with user input (default: 3%). Stochastic/historical inflation modeling will be added in Phase 2.
 
 ### 8.2 Correlation Matrix Calculation
-**Decision:** ✅ Correlation matrix will be calculated from historical price data when available. This requires fetching historical price data for all assets in the portfolio and computing pairwise correlations.
+**Decision:** ✅ Correlation matrix will be calculated from historical price data. The data will be loaded from pre-fetched static CSV files stored in the repository, ensuring instant access without API calls at runtime.
 
-### 8.3 Tech Stack
+### 8.3 Static Historical Data Strategy
+**Decision:** ✅ Phase 1 will use pre-fetched static CSV files for historical price data instead of runtime API calls. This approach:
+- Eliminates API dependencies, CORS issues, and rate limits at runtime
+- Provides instant loading and better UX
+- Maintains true statelessness (no backend required)
+- Supports 6 pre-defined assets: VT, QQQ, AVUV, BND, GLD, BTC
+- Data files (~200KB total) stored in `public/data/`
+- Monthly updates via separate script (can be automated)
+- Runtime API integration for custom tickers deferred to Phase 2
+
+### 8.4 Tech Stack
 **Decision:** ✅ Vite + React (lightweight and optimized for pure client-side applications).
 
-### 8.4 Edge Cases & Validation Rules
+### 8.5 Edge Cases & Validation Rules
 **Decision:** ✅ Validation rules established:
 - **Negative spending amounts:** Show error message and prevent simulation from running.
 - **Zero initial deposit:** Prevent simulation from running (validation: initial deposit must be > 0).
@@ -177,28 +203,42 @@ For each simulation (run $j$ from $1$ to $N$):
 - **Asset weights not summing to 100%:** Not applicable—users enter dollar values ($), not percentages. Weights are auto-calculated.
 - **Portfolio goes negative mid-year:** Treated as a failed run; simulation stops for that iteration.
 
-### 8.5 Portfolio Rebalancing
+### 8.6 Portfolio Rebalancing
 **Decision:** ✅ Phase 1 defaults to annual rebalancing. Each year, after growth and spending, the portfolio resets asset allocations to their target weights. Quarterly rebalancing and other options will be added in Phase 2.
 
-### 8.6 Browser Compatibility
+### 8.7 Browser Compatibility
 **Decision:** ✅ Support modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
 
-### 8.7 Results & Statistics Display
+### 8.8 Results & Statistics Display
 **Decision:** ✅ Display comprehensive statistics beyond success rate:
 - Median ending balance
 - Percentile bands (10th, 25th, 75th, 90th percentiles)
 - Worst-case scenario balance
 - Years until failure (for failed runs)
 
-### 8.8 Chart Visualization
+### 8.9 Chart Visualization
 **Decision:** ✅ Phase 1 will display percentile bands only (10th, 25th, 50th/median, 75th, 90th) on the chart to keep visualization clean and simple. Individual simulation paths may be added in Phase 2.
 
-### 8.9 Implementation Order
+### 8.10 Implementation Order
 **Decision:** ✅ Components will be built in this sequence:
+0. Static historical data preparation (fetch and prepare CSV files for 6 assets)
 1. Simulation engine (core math)
 2. Portfolio setup UI
 3. Results display & visualization
 4. Multi-phase spending builder
 
-### 8.10 Web Worker Implementation
+### 8.11 Web Worker Implementation
 **Decision:** ✅ Web Worker will be implemented from the start to prevent UI freezing during simulations, especially for large iteration counts (10k simulations).
+
+### 8.12 Static Data File Preparation
+**Decision:** ✅ Historical data strategy:
+- **Data Coverage:** Fetch maximum available historical data for each ticker (as far back as data exists)
+- **Update Process:** Manual monthly updates - developer runs data fetch script and commits updated CSV files to repository
+- **No Automation:** GitHub Actions or automated updates are not needed for Phase 1; manual process is sufficient
+
+### 8.13 CSV File Format
+**Decision:** ✅ Phase 1 will use minimal CSV format:
+- **Format:** `date,close` (two columns only)
+- **Rationale:** Simplest format, smallest file size, sufficient for return/volatility/correlation calculations
+- **Flexibility:** Data fetcher script must be designed to easily add more fields (e.g., `open,high,low,volume,adjusted_close`) in future phases without major refactoring
+- **Script Design:** Use configurable field mapping so adding columns requires minimal code changes
