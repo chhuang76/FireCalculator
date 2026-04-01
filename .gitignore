@@ -1,1 +1,19 @@
 ﻿.claude
+
+# Environment variables (contains API keys)
+.env
+
+# Node modules (if we add any dependencies later)
+node_modules/
+
+# Build output
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
