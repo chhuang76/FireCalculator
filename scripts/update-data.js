@@ -14,9 +14,14 @@
  *   ALPHA_VANTAGE_API_KEY - API key for Alpha Vantage (if using alphavantage source)
  */
 
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import { fileURLToPath } from 'url';
+
+// ES module equivalents for __dirname and __filename
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ============================================================================
 // LOAD ENVIRONMENT VARIABLES FROM .env FILE
@@ -529,8 +534,11 @@ async function main() {
   }
 }
 
-// Run main function
-if (require.main === module) {
+// Run main function when script is executed directly
+// In ES modules, we can check if this is the main module by comparing import.meta.url with the file URL
+const isMainModule = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isMainModule) {
   main().catch(error => {
     console.error('\n❌ Fatal error:', error);
     process.exit(1);
@@ -538,4 +546,4 @@ if (require.main === module) {
 }
 
 // Export for testing
-module.exports = { generateCSV, validateData };
+export { generateCSV, validateData };
