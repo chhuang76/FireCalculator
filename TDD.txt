@@ -19,10 +19,11 @@ The tool utilizes a **Monte Carlo simulation** engine running entirely in the us
 
 To maintain the "stateless" requirement while providing a modern, responsive UI, the following stack is proposed:
 
-* **Framework:** React (Next.js is optional but a single-file Vite + React setup is lighter for a purely client-side tool).
+* **Framework:** Vite + React (lightweight and optimized for client-side applications).
 * **Styling:** Tailwind CSS (for fast, utility-first layout building).
 * **Math & Stats:** `mathjs` or `simple-statistics` for matrix operations (Cholesky decomposition).
 * **Charts:** `Chart.js` or `Recharts` to render the Monte Carlo "spaghetti plot" of portfolio trajectories.
+* **Browser Support:** Modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
 
 ---
 
@@ -86,8 +87,10 @@ For each simulation (run $j$ from $1$ to $N$):
     * Calculate the total portfolio growth factor: $G = \sum (\text{Weight}_i \times X_i)$.
     * Apply growth: $Portfolio = Portfolio \times (1 + G)$.
     * Deduct Nominal Spending: $Portfolio = Portfolio - S_{nominal}$.
-    * If $Portfolio \le 0$, mark this simulation run as a **Failure** and break the loop.
-3.  Calculate **Success Rate** = $(\text{Total Successful Runs} / N) \times 100$.
+    * **Annual Rebalancing:** Reset asset allocations to their target weights based on the new portfolio balance.
+    * If $Portfolio \le 0$ (including mid-year), mark this simulation run as a **Failure** and break the loop.
+3.  If the portfolio balance remains positive through all years, mark the run as a **Success**.
+4.  Calculate **Success Rate** = $(\text{Total Successful Runs} / N) \times 100$.
 
 ---
 
@@ -96,11 +99,16 @@ For each simulation (run $j$ from $1$ to $N$):
 ### Component 1: Portfolio Setup
 * **Table Rows:** Dynamic array of inputs.
 * **State:** Array of objects `[{ ticker: 'VT', value: 200000, return: 0.09, vol: 0.17 }]`.
-* **Auto-Calculations:** Displays running total of portfolio value and percentage weight of each row in real-time.
+* **Input Format:** Users enter dollar values ($) for each asset, not percentages.
+* **Auto-Calculations:** Displays running total of portfolio value and percentage weight of each row in real-time (calculated from $ values).
+* **Validation:** Initial deposit must be greater than zero to run simulation.
 
 ### Component 2: Multi-Phase Spending Builder
 * **Inputs:** `[ Spending Amount ]` and `[ Duration in Years ]`.
 * **Action:** "Add Phase" button creates a new row.
+* **Design:** Phases are entered in a continuous sequence. Each new phase automatically starts where the previous phase ended, preventing gaps or overlaps.
+  * Example: Phase 1 (15 years) covers Years 1-15. Phase 2 (30 years) automatically starts at Year 16 and covers Years 16-45.
+* **Validation:** Spending amounts must be positive (greater than zero).
 * **Guardrails:** Total years automatically sums up at the bottom to show the user the total duration of their retirement.
 
 ### Component 3: Configuration & Execution
@@ -133,14 +141,7 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.2 Tech Stack Final Decision
-**Question:** React + Vite vs Next.js?
-
-**Recommendation:** Vite + React (lighter, simpler for pure client-side)
-
-**Decision:** [PENDING]
-
-### 7.3 Implementation Priority & Phasing
+### 7.2 Implementation Priority & Phasing
 **Question:** Which components to build first?
 
 **Suggested Order:**
@@ -153,19 +154,7 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.4 Edge Cases & Validation Rules
-**Question:** How to handle invalid inputs?
-
-**Cases to define:**
-- Negative spending amounts → [PENDING]
-- Zero initial deposit → [PENDING]
-- Spending phases with gaps or overlaps → [PENDING]
-- Asset weights not summing to 100% → [PENDING]
-- Portfolio goes negative mid-year → [PENDING]
-
-**Decision:** [PENDING]
-
-### 7.5 Hardcoded Defaults Data
+### 7.3 Hardcoded Defaults Data
 **Question:** Do pre-calculated μ, σ, and correlation matrix values exist for default tickers (VT, QQQ, AVUV, BND, GLD, BTC)?
 
 **Options:**
@@ -175,17 +164,7 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.6 Portfolio Rebalancing
-**Question:** Should the portfolio rebalance to maintain target weights?
-
-**Options:**
-- [ ] Annual rebalancing (reset to target weights each year)
-- [ ] No rebalancing (drift allowed)
-- [ ] User-configurable option
-
-**Decision:** [PENDING]
-
-### 7.7 Results & Statistics Display
+### 7.4 Results & Statistics Display
 **Question:** Beyond success rate, what statistics should be displayed?
 
 **Options to consider:**
@@ -196,7 +175,7 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.8 Chart Visualization Details
+### 7.5 Chart Visualization Details
 **Question:** How to display the Monte Carlo trajectories?
 
 **Options:**
@@ -207,12 +186,29 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.9 Browser Compatibility & Performance
-**Question:** What are the minimum browser requirements?
+---
 
-**Considerations:**
-- [ ] Modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions)
-- [ ] Mobile browser support priority?
-- [ ] Maximum simulation count (10k might freeze older devices)
+## 8. Decisions Made
 
-**Decision:** [PENDING]
+### 8.1 Inflation Model
+**Decision:** ✅ Phase 1 uses a fixed inflation rate with user input (default: 3%). Stochastic/historical inflation modeling will be added in Phase 2.
+
+### 8.2 Correlation Matrix Calculation
+**Decision:** ✅ Correlation matrix will be calculated from historical price data when available. This requires fetching historical price data for all assets in the portfolio and computing pairwise correlations.
+
+### 8.3 Tech Stack
+**Decision:** ✅ Vite + React (lightweight and optimized for pure client-side applications).
+
+### 8.4 Edge Cases & Validation Rules
+**Decision:** ✅ Validation rules established:
+- **Negative spending amounts:** Show error message and prevent simulation from running.
+- **Zero initial deposit:** Prevent simulation from running (validation: initial deposit must be > 0).
+- **Spending phases with gaps or overlaps:** Not possible by design—UI enforces continuous sequence of phases.
+- **Asset weights not summing to 100%:** Not applicable—users enter dollar values ($), not percentages. Weights are auto-calculated.
+- **Portfolio goes negative mid-year:** Treated as a failed run; simulation stops for that iteration.
+
+### 8.5 Portfolio Rebalancing
+**Decision:** ✅ Phase 1 defaults to annual rebalancing. Each year, after growth and spending, the portfolio resets asset allocations to their target weights. Quarterly rebalancing and other options will be added in Phase 2.
+
+### 8.6 Browser Compatibility
+**Decision:** ✅ Support modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
