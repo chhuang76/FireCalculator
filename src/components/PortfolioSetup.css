@@ -1,0 +1,247 @@
+.portfolio-setup {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.section-header p {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.portfolio-table-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.portfolio-table thead {
+  background: #f8f9fa;
+}
+
+.portfolio-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.portfolio-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.portfolio-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.ticker-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: white;
+  cursor: pointer;
+}
+
+.ticker-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.value-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.value-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.weight-cell {
+  font-weight: 500;
+  color: #495057;
+}
+
+.stats-cell {
+  text-align: center;
+}
+
+.stat-value {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: #e7f5ff;
+  color: #1971c2;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.loading {
+  color: #868e96;
+  font-style: italic;
+}
+
+.error {
+  color: #fa5252;
+  font-weight: 500;
+}
+
+.remove-btn {
+  background: #fff5f5;
+  color: #c92a2a;
+  border: 1px solid #ffc9c9;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-btn:hover:not(:disabled) {
+  background: #ffe3e3;
+  border-color: #ffa8a8;
+}
+
+.remove-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.total-row {
+  background: #f8f9fa;
+  font-size: 1rem;
+}
+
+.total-row td {
+  padding: 1rem 0.75rem;
+  border-bottom: none;
+  border-top: 2px solid #dee2e6;
+}
+
+.portfolio-actions {
+  margin: 1rem 0;
+}
+
+.add-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}
+
+.error-message {
+  background: #fff5f5;
+  color: #c92a2a;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #fa5252;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.portfolio-summary {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e9ecef;
+}
+
+.portfolio-summary h3 {
+  font-size: 1.3rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  color: #868e96;
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .portfolio-setup {
+    padding: 1rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .portfolio-table {
+    font-size: 0.85rem;
+  }
+
+  .portfolio-table th,
+  .portfolio-table td {
+    padding: 0.5rem;
+  }
+
+  .ticker-select,
+  .value-input {
+    font-size: 0.85rem;
+    padding: 0.4rem;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}

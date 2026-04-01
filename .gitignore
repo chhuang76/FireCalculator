@@ -10,6 +10,9 @@ node_modules/
 dist/
 build/
 
+# Vite
+.vite/
+
 # IDE
 .vscode/
 .idea/
