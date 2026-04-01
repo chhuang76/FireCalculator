@@ -14,6 +14,7 @@ function App() {
   const [inflationRate, setInflationRate] = useState(0.03); // 3%
   const [iterations, setIterations] = useState(10000);
   const [tickerStats, setTickerStats] = useState({}); // Shared ticker data
+  const [alignmentError, setAlignmentError] = useState(null); // Errors before simulation
 
   // Simulation hook
   const { isRunning, progress, results, error, runSimulation } = useSimulation();
@@ -68,9 +69,17 @@ function App() {
 
   // Run simulation
   const handleRunSimulation = async () => {
-    if (!canRun) return;
+    if (!canRun) {
+      console.log('Cannot run: validation failed');
+      return;
+    }
+
+    // Clear previous errors
+    setAlignmentError(null);
 
     try {
+      console.log('Starting simulation...');
+
       // Build simulation portfolio with statistics
       const simulationPortfolio = portfolio
         .filter(a => a.ticker && a.value > 0)
@@ -81,11 +90,17 @@ function App() {
           sigma: tickerStats[a.ticker].sigma
         }));
 
+      console.log('Simulation portfolio:', simulationPortfolio);
+
       // Align historical returns to common dates
       const uniqueTickers = [...new Set(simulationPortfolio.map(a => a.ticker))];
+      console.log('Aligning data for tickers:', uniqueTickers);
+
       const { historicalReturns } = alignHistoricalReturns(tickerStats, uniqueTickers);
+      console.log('Data aligned successfully');
 
       // Run simulation
+      console.log('Running Monte Carlo simulation...');
       await runSimulation({
         portfolio: simulationPortfolio,
         phases: phases.filter(p => p.amount > 0 && p.years > 0),
@@ -101,6 +116,7 @@ function App() {
 
     } catch (err) {
       console.error('Simulation error:', err);
+      setAlignmentError(err.message || 'Failed to run simulation');
     }
   };
 
@@ -141,10 +157,10 @@ function App() {
         />
 
         {/* Error Display */}
-        {error && (
+        {(error || alignmentError) && (
           <div className="error-banner">
             <h3>Simulation Error</h3>
-            <p>{error}</p>
+            <p>{alignmentError || error}</p>
           </div>
         )}
 

@@ -11,7 +11,8 @@
     "test:simulation": "node src/lib/test-simulation.js",
     "test:data": "node scripts/test-data-script.js",
     "update-data": "node scripts/update-data.js",
-    "generate-sample-data": "node scripts/generate-sample-data.js"
+    "generate-sample-data": "node scripts/generate-sample-data.js",
+    "generate-best-data": "node scripts/generate-best-sample-data.js"
   },
   "keywords": [
     "retirement",

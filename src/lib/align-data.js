@@ -13,11 +13,33 @@
  * @returns {Object} { historicalReturns: { ticker: [aligned returns] } }
  */
 export function alignHistoricalReturns(tickerStats, tickers) {
+  // Validate inputs
+  if (!tickerStats || !tickers || tickers.length === 0) {
+    throw new Error('Invalid inputs: tickerStats and tickers are required');
+  }
+
+  // Check that all tickers have data
+  for (const ticker of tickers) {
+    if (!tickerStats[ticker]) {
+      throw new Error(`Missing data for ticker: ${ticker}. Data may still be loading.`);
+    }
+    if (!tickerStats[ticker].priceData) {
+      throw new Error(`Missing price data for ticker: ${ticker}`);
+    }
+    if (!tickerStats[ticker].returns) {
+      throw new Error(`Missing returns data for ticker: ${ticker}`);
+    }
+  }
+
   // Build a map of all dates with prices for each ticker
   const allDates = {};
 
   tickers.forEach(ticker => {
     const priceData = tickerStats[ticker].priceData;
+    if (!Array.isArray(priceData) || priceData.length === 0) {
+      throw new Error(`Invalid price data for ticker: ${ticker}`);
+    }
+
     priceData.forEach(p => {
       if (!allDates[p.date]) {
         allDates[p.date] = {};
@@ -32,8 +54,18 @@ export function alignHistoricalReturns(tickerStats, tickers) {
     .sort();
 
   if (commonDates.length < 2) {
-    throw new Error('Not enough overlapping data points between tickers');
+    const dateInfo = tickers.map(ticker => {
+      const dates = tickerStats[ticker].priceData.map(p => p.date);
+      return `${ticker}: ${dates[0]} to ${dates[dates.length - 1]} (${dates.length} points)`;
+    }).join(', ');
+    throw new Error(
+      `Not enough overlapping data points between tickers. ${dateInfo}. ` +
+      `Found only ${commonDates.length} common dates. Need at least 2.`
+    );
   }
+
+  console.log(`Data alignment: Found ${commonDates.length} overlapping dates for ${tickers.join(', ')}`);
+  console.log(`Date range: ${commonDates[0]} to ${commonDates[commonDates.length - 1]}`);
 
   // Calculate aligned returns for each ticker
   const historicalReturns = {};

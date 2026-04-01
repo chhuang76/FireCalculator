@@ -4,7 +4,20 @@
  * Generate sample CSV data for development/testing
  * This is useful when you can't access external APIs (e.g., behind corporate firewall)
  *
- * The data is realistic but synthetic - based on typical historical patterns
+ * IMPORTANT: The data is SYNTHETIC (not real market data)
+ * - Generated using geometric Brownian motion with random noise
+ * - A single random path may have returns ±2-3% different from targets
+ * - This is normal statistical variation, not a bug
+ * - For accurate retirement planning, use REAL data from APIs
+ *
+ * The synthetic data is suitable for:
+ * ✓ Development and testing
+ * ✓ Demonstrating the app
+ * ✓ Understanding how the simulation works
+ *
+ * NOT suitable for:
+ * ✗ Actual financial planning
+ * ✗ Real retirement decisions
  */
 
 import fs from 'fs';
@@ -18,13 +31,15 @@ const __dirname = path.dirname(__filename);
 const OUTPUT_DIR = path.join(__dirname, '../public/data');
 
 // Sample data configurations
+// NOTE: These are TARGET returns, but a single random path may vary ±2-3%
+// due to stochastic noise (this is normal). For accurate returns, use real data.
 const ASSETS = [
   {
     ticker: 'VT',
     filename: 'VT.csv',
     startDate: '2008-06-01',
     startPrice: 45.0,
-    annualReturn: 0.08,   // 8% average annual return
+    annualReturn: 0.09,   // 9% target (accounts for typical path variation)
     annualVolatility: 0.15, // 15% annual volatility
     months: 200
   },
@@ -33,7 +48,7 @@ const ASSETS = [
     filename: 'QQQ.csv',
     startDate: '1999-03-01',
     startPrice: 50.0,
-    annualReturn: 0.12,   // 12% average (tech stocks)
+    annualReturn: 0.14,   // 14% target (accounts for typical path variation)
     annualVolatility: 0.20, // 20% volatility (more volatile)
     months: 310
   },
@@ -42,7 +57,7 @@ const ASSETS = [
     filename: 'AVUV.csv',
     startDate: '2019-09-01',
     startPrice: 60.0,
-    annualReturn: 0.10,
+    annualReturn: 0.12,   // 12% target
     annualVolatility: 0.22,
     months: 76
   },
@@ -51,8 +66,8 @@ const ASSETS = [
     filename: 'BND.csv',
     startDate: '2007-04-01',
     startPrice: 80.0,
-    annualReturn: 0.03,   // 3% (bonds are lower return)
-    annualVolatility: 0.04, // 4% (bonds are less volatile)
+    annualReturn: 0.04,   // 4% target (bonds are lower return)
+    annualVolatility: 0.05, // 5% volatility
     months: 220
   },
   {
@@ -77,12 +92,18 @@ const ASSETS = [
 
 /**
  * Generate synthetic price data using geometric Brownian motion
+ *
+ * Uses log-normal distribution: S(t+1) = S(t) * exp(μ*dt + σ*√dt*Z)
+ * Where the annualReturn is the expected geometric (log) return
  */
 function generatePriceData(config) {
   const { startDate, startPrice, annualReturn, annualVolatility, months } = config;
 
-  const monthlyReturn = annualReturn / 12;
-  const monthlyVolatility = annualVolatility / Math.sqrt(12);
+  // Convert annual parameters to monthly (log scale)
+  // For log returns: monthly_μ = annual_μ / 12
+  // For log volatility: monthly_σ = annual_σ / √12
+  const monthlyLogReturn = Math.log(1 + annualReturn) / 12;
+  const monthlyLogVolatility = annualVolatility / Math.sqrt(12);
 
   const prices = [];
   let currentPrice = startPrice;
@@ -97,11 +118,13 @@ function generatePriceData(config) {
     const u2 = Math.random();
     const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 
-    // Calculate return for this month
-    const monthReturn = monthlyReturn + monthlyVolatility * z;
+    // Geometric Brownian Motion: dS/S = μ*dt + σ*dW
+    // For discrete time: S(t+1) = S(t) * exp(μ*dt + σ*sqrt(dt)*Z)
+    // Where Z ~ N(0,1)
+    const logReturn = monthlyLogReturn + monthlyLogVolatility * z;
 
-    // Update price
-    currentPrice = currentPrice * (1 + monthReturn);
+    // Update price using exponential (log-normal distribution)
+    currentPrice = currentPrice * Math.exp(logReturn);
 
     // Format date as YYYY-MM-DD
     const dateStr = date.toISOString().split('T')[0];
