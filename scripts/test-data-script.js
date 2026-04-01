@@ -7,6 +7,19 @@
 
 const { generateCSV, validateData } = require('./update-data.js');
 
+// Helper function to deduplicate (copied from update-data.js for testing)
+function deduplicateByDate(prices) {
+  const seen = new Set();
+  const deduplicated = [];
+  for (const price of prices) {
+    if (!seen.has(price.date)) {
+      seen.add(price.date);
+      deduplicated.push(price);
+    }
+  }
+  return deduplicated;
+}
+
 console.log('🧪 Testing update-data.js helper functions...\n');
 
 // Test 1: CSV Generation
@@ -83,6 +96,24 @@ try {
   } else {
     console.log('❌ FAIL: Wrong error:', error.message);
   }
+}
+
+// Test 6: Deduplication
+console.log('\nTest 6: Deduplication (remove duplicate dates)');
+const duplicateData = [
+  { date: '2020-01-01', close: 45.67 },
+  { date: '2020-02-01', close: 46.01 },
+  { date: '2020-02-01', close: 46.50 },  // Duplicate date
+  { date: '2020-03-01', close: 47.00 }
+];
+
+const deduped = deduplicateByDate(duplicateData);
+if (deduped.length === 3 && deduped[1].close === 46.01) {
+  console.log('✅ PASS: Duplicates removed (kept first occurrence)');
+  console.log(`   Original: ${duplicateData.length} entries → Deduplicated: ${deduped.length} entries`);
+} else {
+  console.log('❌ FAIL: Deduplication incorrect');
+  console.log('Expected 3 entries, got:', deduped.length);
 }
 
 console.log('\n✅ All tests completed!');

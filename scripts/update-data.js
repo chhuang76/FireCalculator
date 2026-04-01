@@ -201,7 +201,14 @@ class TwelveDataSource {
     // Sort by date ascending (oldest first)
     prices.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    return prices;
+    // Remove duplicate dates (API sometimes returns duplicates)
+    const deduplicated = deduplicateByDate(prices);
+
+    if (deduplicated.length < prices.length) {
+      console.log(`  ℹ️  Removed ${prices.length - deduplicated.length} duplicate date(s)`);
+    }
+
+    return deduplicated;
   }
 }
 
@@ -271,7 +278,14 @@ class AlphaVantageSource {
     // Sort by date ascending (oldest first)
     prices.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    return prices;
+    // Remove duplicate dates (API sometimes returns duplicates)
+    const deduplicated = deduplicateByDate(prices);
+
+    if (deduplicated.length < prices.length) {
+      console.log(`  ℹ️  Removed ${prices.length - deduplicated.length} duplicate date(s)`);
+    }
+
+    return deduplicated;
   }
 }
 
@@ -298,6 +312,26 @@ function generateCSV(prices, fields) {
   });
 
   return [header, ...rows].join('\n');
+}
+
+/**
+ * Remove duplicate dates from price data
+ * Keeps the first occurrence of each date
+ * @param {Array} prices - Array of price objects
+ * @returns {Array} Deduplicated array
+ */
+function deduplicateByDate(prices) {
+  const seen = new Set();
+  const deduplicated = [];
+
+  for (const price of prices) {
+    if (!seen.has(price.date)) {
+      seen.add(price.date);
+      deduplicated.push(price);
+    }
+  }
+
+  return deduplicated;
 }
 
 /**
