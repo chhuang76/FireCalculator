@@ -116,7 +116,7 @@ For each simulation (run $j$ from $1$ to $N$):
   * Expected baseline inflation (user input, default: 3%, fixed rate for Phase 1)
   * Number of simulations (dropdown: 1k, 5k, 10k)
 * **Action:** "Run Simulation" button.
-* **State:** Triggers the Web Worker (optional but recommended for large $N$ so the UI doesn't freeze) to run the math loop.
+* **State:** Triggers the Web Worker to run the simulation math loop, preventing UI freeze during computation.
 
 ### Component 4: Results Display (Output)
 * **Hero Stat:** Large percentage success rate with a color gradient (Red < 70%, Yellow 70-90%, Green > 90%).
@@ -146,20 +146,7 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.2 Implementation Priority & Phasing
-**Question:** Which components to build first?
-
-**Suggested Order:**
-1. Simulation engine (core math)
-2. Portfolio setup UI
-3. Multi-phase spending builder
-4. Results display & visualization
-
-**Web Worker:** Implement from start or optimize later?
-
-**Decision:** [PENDING]
-
-### 7.3 Hardcoded Defaults Data
+### 7.2 Hardcoded Defaults Data
 **Question:** Do pre-calculated μ, σ, and correlation matrix values exist for default tickers (VT, QQQ, AVUV, BND, GLD, BTC)?
 
 **Options:**
@@ -205,3 +192,13 @@ For each simulation (run $j$ from $1$ to $N$):
 
 ### 8.8 Chart Visualization
 **Decision:** ✅ Phase 1 will display percentile bands only (10th, 25th, 50th/median, 75th, 90th) on the chart to keep visualization clean and simple. Individual simulation paths may be added in Phase 2.
+
+### 8.9 Implementation Order
+**Decision:** ✅ Components will be built in this sequence:
+1. Simulation engine (core math)
+2. Portfolio setup UI
+3. Results display & visualization
+4. Multi-phase spending builder
+
+### 8.10 Web Worker Implementation
+**Decision:** ✅ Web Worker will be implemented from the start to prevent UI freezing during simulations, especially for large iteration counts (10k simulations).
