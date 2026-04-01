@@ -120,7 +120,12 @@ For each simulation (run $j$ from $1$ to $N$):
 
 ### Component 4: Results Display (Output)
 * **Hero Stat:** Large percentage success rate with a color gradient (Red < 70%, Yellow 70-90%, Green > 90%).
-* **The Line Chart:** Displays a subset of 50-100 simulated paths showing the distribution of wealth over time.
+* **Statistics Panel:**
+  * Median ending balance
+  * Percentile bands (10th, 25th, 75th, 90th percentiles)
+  * Worst-case scenario balance
+  * Years until failure (for failed runs)
+* **The Line Chart:** Displays percentile bands (10th, 25th, 50th/median, 75th, 90th) showing the distribution of portfolio values over time.
 
 ---
 
@@ -164,28 +169,6 @@ For each simulation (run $j$ from $1$ to $N$):
 
 **Decision:** [PENDING]
 
-### 7.4 Results & Statistics Display
-**Question:** Beyond success rate, what statistics should be displayed?
-
-**Options to consider:**
-- [ ] Median ending balance
-- [ ] Percentile bands (10th, 25th, 75th, 90th)
-- [ ] Worst-case scenario balance
-- [ ] Years until failure (for failed runs)
-
-**Decision:** [PENDING]
-
-### 7.5 Chart Visualization Details
-**Question:** How to display the Monte Carlo trajectories?
-
-**Options:**
-- [ ] Show all N paths (can be visually noisy)
-- [ ] Show random sample (e.g., 50-100 paths)
-- [ ] Show percentile bands only
-- [ ] Combination of sample paths + percentile bands
-
-**Decision:** [PENDING]
-
 ---
 
 ## 8. Decisions Made
@@ -212,3 +195,13 @@ For each simulation (run $j$ from $1$ to $N$):
 
 ### 8.6 Browser Compatibility
 **Decision:** ✅ Support modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
+
+### 8.7 Results & Statistics Display
+**Decision:** ✅ Display comprehensive statistics beyond success rate:
+- Median ending balance
+- Percentile bands (10th, 25th, 75th, 90th percentiles)
+- Worst-case scenario balance
+- Years until failure (for failed runs)
+
+### 8.8 Chart Visualization
+**Decision:** ✅ Phase 1 will display percentile bands only (10th, 25th, 50th/median, 75th, 90th) on the chart to keep visualization clean and simple. Individual simulation paths may be added in Phase 2.
