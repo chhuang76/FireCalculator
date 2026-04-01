@@ -1,0 +1,245 @@
+.spending-phases-builder {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.phases-table-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.phases-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.phases-table thead {
+  background: #f8f9fa;
+}
+
+.phases-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.phases-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.phases-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.phase-number {
+  font-weight: 500;
+}
+
+.phase-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.input-with-prefix {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.prefix {
+  font-weight: 500;
+  color: #495057;
+}
+
+.amount-input,
+.years-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.amount-input {
+  max-width: 150px;
+}
+
+.years-input {
+  max-width: 100px;
+}
+
+.amount-input:focus,
+.years-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.total-cell {
+  font-weight: 500;
+  color: #495057;
+}
+
+.inflation-cell {
+  font-size: 0.9rem;
+}
+
+.inflation-note {
+  display: block;
+  font-size: 0.75rem;
+  color: #868e96;
+  margin-top: 0.1rem;
+}
+
+.no-inflation {
+  color: #adb5bd;
+}
+
+.total-row {
+  background: #f8f9fa;
+  font-size: 1rem;
+}
+
+.total-row td {
+  padding: 1rem 0.75rem;
+  border-bottom: none;
+  border-top: 2px solid #dee2e6;
+}
+
+.total-row em {
+  font-size: 0.85rem;
+  color: #868e96;
+}
+
+.phases-actions {
+  margin: 1rem 0;
+}
+
+.add-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+}
+
+.timeline-visualization {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e9ecef;
+}
+
+.timeline-visualization h3 {
+  font-size: 1.3rem;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.timeline-bar {
+  display: flex;
+  width: 100%;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.timeline-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.timeline-segment:hover {
+  opacity: 0.85;
+}
+
+.timeline-label {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.timeline-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.legend-text {
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .spending-phases-builder {
+    padding: 1rem;
+  }
+
+  .phases-table {
+    font-size: 0.85rem;
+  }
+
+  .phases-table th,
+  .phases-table td {
+    padding: 0.5rem;
+  }
+
+  .amount-input,
+  .years-input {
+    font-size: 0.85rem;
+    padding: 0.4rem;
+  }
+
+  .timeline-bar {
+    height: 50px;
+  }
+
+  .timeline-label {
+    font-size: 0.8rem;
+  }
+}

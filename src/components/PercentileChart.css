@@ -1,0 +1,149 @@
+.percentile-chart-container {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.percentile-chart-container h3 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.chart-description {
+  font-size: 0.95rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.custom-tooltip {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip-year {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.tooltip-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.tooltip-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  min-width: 50px;
+}
+
+.p90-label {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.p75-label {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.p50-label {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.p25-label {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.p10-label {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.tooltip-value {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.chart-legend-info {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.legend-note {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.legend-note strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.legend-note ul {
+  margin-left: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.legend-note li {
+  margin-bottom: 0.25rem;
+}
+
+/* Recharts customization */
+.recharts-legend-wrapper {
+  margin-top: 1rem;
+}
+
+.recharts-tooltip-wrapper {
+  z-index: 10;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .percentile-chart-container {
+    padding: 1rem;
+  }
+
+  .percentile-chart-container h3 {
+    font-size: 1.3rem;
+  }
+
+  .custom-tooltip {
+    padding: 0.75rem;
+  }
+
+  .tooltip-year {
+    font-size: 0.9rem;
+  }
+
+  .tooltip-item {
+    font-size: 0.8rem;
+  }
+}

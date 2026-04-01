@@ -13,12 +13,18 @@
     "update-data": "node scripts/update-data.js",
     "generate-sample-data": "node scripts/generate-sample-data.js"
   },
-  "keywords": ["retirement", "monte-carlo", "fire", "calculator"],
+  "keywords": [
+    "retirement",
+    "monte-carlo",
+    "fire",
+    "calculator"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

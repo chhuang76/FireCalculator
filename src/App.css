@@ -26,6 +26,42 @@
   max-width: 1200px;
   margin: 2rem auto;
   padding: 0 1rem;
+  min-height: calc(100vh - 200px);
+}
+
+.error-banner {
+  background: #fff5f5;
+  border: 2px solid #ffc9c9;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.error-banner h3 {
+  color: #c92a2a;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.error-banner p {
+  color: #c92a2a;
+  margin: 0;
+}
+
+.app-footer {
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  padding: 2rem;
+  margin-top: 4rem;
+  text-align: center;
+}
+
+.app-footer p {
+  max-width: 800px;
+  margin: 0 auto;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.6;
 }
 
 @media (max-width: 768px) {
@@ -39,5 +75,9 @@
 
   .app-main {
     margin: 1rem auto;
+  }
+
+  .app-footer {
+    padding: 1.5rem 1rem;
   }
 }

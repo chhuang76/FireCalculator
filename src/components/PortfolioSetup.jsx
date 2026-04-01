@@ -12,8 +12,7 @@ const AVAILABLE_TICKERS = [
   { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' }
 ];
 
-function PortfolioSetup({ portfolio, setPortfolio }) {
-  const [tickerStats, setTickerStats] = useState({});
+function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }) {
   const [loadingTickers, setLoadingTickers] = useState({});
   const [errors, setErrors] = useState({});
 

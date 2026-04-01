@@ -168,13 +168,14 @@ class TwelveDataSource {
   async fetchData(ticker, isCrypto = false) {
     const endpoint = `${this.baseUrl}/time_series`;
 
-    // Request maximum data available
+    // Request maximum data available with adjusted prices (includes dividends)
     const params = new URLSearchParams({
       symbol: ticker,
       interval: '1month',
       outputsize: '5000',  // Request maximum available
       apikey: this.apiKey,
-      format: 'JSON'
+      format: 'JSON',
+      adjusted: 'true'     // Include dividend adjustments
     });
 
     const url = `${endpoint}?${params}`;
@@ -193,9 +194,10 @@ class TwelveDataSource {
     }
 
     // Transform to standard format
+    // When adjusted=true, Twelve Data returns adjusted close prices in the 'close' field
     const prices = data.values.map(item => ({
       date: item.datetime,
-      close: parseFloat(item.close)
+      close: parseFloat(item.close)  // Now includes dividend adjustments
     }));
 
     // Sort by date ascending (oldest first)
