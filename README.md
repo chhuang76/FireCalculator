@@ -204,10 +204,22 @@ For offline testing, use the synthetic data generator.
 
 ## Documentation
 
-- `TDD.txt` - Technical Design Document with all decisions
-- `STEP0_COMPLETE.md` - Data preparation documentation
-- `STEP1_COMPLETE.md` - Simulation engine documentation
-- `STEP2_COMPLETE.md` - Portfolio UI documentation
+Full documentation is in the [`docs/`](docs/) folder:
+
+**Implementation Steps:**
+- [`docs/TDD.txt`](docs/TDD.txt) - Technical Design Document with all decisions
+- [`docs/STEP0_COMPLETE.md`](docs/STEP0_COMPLETE.md) - Data preparation
+- [`docs/STEP1_COMPLETE.md`](docs/STEP1_COMPLETE.md) - Simulation engine
+- [`docs/STEP2_COMPLETE.md`](docs/STEP2_COMPLETE.md) - Portfolio UI
+- [`docs/STEP3_COMPLETE.md`](docs/STEP3_COMPLETE.md) - Results & visualization
+
+**Data & API Guides:**
+- [`docs/DIVIDENDS.md`](docs/DIVIDENDS.md) - How dividends are included in data
+- [`docs/TESTING_REAL_DATA.md`](docs/TESTING_REAL_DATA.md) - Testing real API data
+- [`docs/SYNTHETIC_DATA_NOTES.md`](docs/SYNTHETIC_DATA_NOTES.md) - Synthetic vs real data
+- [`docs/API_RESEARCH.md`](docs/API_RESEARCH.md) - API research and options
+- [`docs/DATA_PREPARATION_GUIDE.md`](docs/DATA_PREPARATION_GUIDE.md) - Data preparation guide
+- [`docs/SERVERLESS_PROXY_GUIDE.md`](docs/SERVERLESS_PROXY_GUIDE.md) - Serverless proxy setup
 
 ## Testing
 
@@ -237,4 +249,4 @@ MIT
 
 ## Contributing
 
-This is a personal project following a Test-Driven Development approach. See TDD.txt for design decisions and implementation plan.
+This is a personal project following a Test-Driven Development approach. See [`docs/TDD.txt`](docs/TDD.txt) for design decisions and implementation plan.
