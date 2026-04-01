@@ -1,244 +1,801 @@
 # Technical Design Document: Stateless Retirement Monte Carlo Simulator
 
+**Version:** 1.0
+**Status:** ✅ Complete - Ready for Implementation
+**Last Updated:** 2026-03-31
+
+---
+
+## Executive Summary
+
+A **stateless, client-side web application** for simulating retirement portfolio success rates using Monte Carlo analysis. The tool runs entirely in the browser with no backend, database, or user accounts.
+
+**Key Features:**
+- Multi-phase spending schedules (e.g., different spending in early vs late retirement)
+- Multi-asset portfolios with realistic correlation modeling
+- 5,000-10,000 Monte Carlo simulations per run
+- Visual results with percentile bands and comprehensive statistics
+- 100% offline capability using pre-fetched historical data
+
+**Tech Stack:** Vite + React + Tailwind CSS + Web Workers
+**Target Users:** Individual investors planning retirement
+**Cost:** $0 (fully open source, no runtime costs)
+
 ---
 
 ## 1. System Overview
 
-This project aims to build a **stateless, client-side web application** that allows users to simulate the success rate of various portfolio configurations against complex, multi-phase spending schedules over long time horizons (e.g., 55 years). 
-
-The tool utilizes a **Monte Carlo simulation** engine running entirely in the user's browser, eliminating the need for a backend, database, or user accounts. 
-
 ### Core Guiding Principles
-* **Zero Footprint:** No user data is stored on any server.
-* **Vibe Coding Friendly:** The architecture is kept modular and simple so an AI agent can easily generate, debug, and iterate on the code.
-* **High Fidelity:** Despite being a browser tool, the math handles asset correlations, multi-phase spending, and inflation variance accurately.
+
+1. **Zero Footprint:** No user data stored on any server
+2. **Vibe Coding Friendly:** Modular architecture optimized for AI-assisted development
+3. **High Fidelity:** Accurate mathematical modeling of correlations, multi-phase spending, and inflation
+
+### What Makes This Different
+
+Most retirement calculators use oversimplified assumptions. This tool:
+- ✅ Models asset correlations (stocks crash together, bonds don't)
+- ✅ Handles complex spending patterns (not just fixed 4% withdrawal)
+- ✅ Runs thousands of simulations for statistical confidence
+- ✅ Works completely offline (no API dependencies at runtime)
+- ✅ Truly stateless (shareable via URL encoding in Phase 2)
 
 ---
 
 ## 2. Architecture & Tech Stack
 
-To maintain the "stateless" requirement while providing a modern, responsive UI, the following stack is proposed:
+### Framework & Libraries
 
-* **Framework:** Vite + React (lightweight and optimized for client-side applications).
-* **Styling:** Tailwind CSS (for fast, utility-first layout building).
-* **Math & Stats:** `mathjs` or `simple-statistics` for matrix operations (Cholesky decomposition).
-* **Charts:** `Chart.js` or `Recharts` to render the Monte Carlo "spaghetti plot" of portfolio trajectories.
-* **Browser Support:** Modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| **Framework** | Vite + React | Lightweight, fast dev experience, optimized for client-side |
+| **Styling** | Tailwind CSS | Utility-first, minimal bundle size |
+| **Math/Stats** | mathjs or simple-statistics | Cholesky decomposition for correlation matrix |
+| **Charts** | Chart.js or Recharts | Percentile band visualization |
+| **Computation** | Web Worker | Prevents UI freeze during 10k simulations |
 
----
+### Browser Support
 
-## 3. Data Strategy: Fetching & Handling Stock Data
+- **Target:** Modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions)
+- **Rationale:** Allows use of modern JavaScript features without heavy polyfills
 
-Because the app is stateless and runs in the browser, calling live financial APIs (like Alpha Vantage or Yahoo Finance) directly is problematic due to CORS restrictions and the exposure of private API keys.
+### Performance Targets
 
-### Static Historical Data Files (Primary Approach)
-
-To maintain true statelessness and eliminate API dependencies at runtime, the app will use **pre-fetched static historical data files** stored locally.
-
-1.  **Data Files Structure:**
-    * Store historical monthly price data as CSV files in `public/data/`
-    * One file per supported asset: `VT.csv`, `QQQ.csv`, `AVUV.csv`, `BND.csv`, `GLD.csv`, `BTC.csv`
-    * **CSV format:** `date,close` (minimal two-column format for Phase 1)
-    * Example:
-      ```csv
-      date,close
-      2015-01-01,45.67
-      2015-02-01,46.01
-      2015-03-01,46.89
-      ```
-    * Covers maximum available historical data for each ticker (varies by asset age)
-    * Total estimated size: < 300KB for all assets combined
-
-2.  **Data Update Process:**
-    * Monthly data refresh using a separate Node.js script (`scripts/update-data.js`)
-    * Developer manually runs script to fetch latest data from Twelve Data API (or similar)
-    * Script converts data to CSV format (`date,close` for Phase 1) and overwrites existing files
-    * **Script Flexibility:** Designed with configurable field mapping to easily add more columns (e.g., `open,high,low,volume,adjusted_close`) in future phases
-    * Developer commits updated files to git repository
-    * Manual process - no automation needed for Phase 1
-
-3.  **Runtime Calculation:**
-    * App loads CSV files on demand when user adds an asset to portfolio
-    * Calculates statistics from loaded data:
-        * $Log\ Returns = \ln(P_t / P_{t-1})$
-        * $\mu = \text{mean}(Log\ Returns) \times 12$
-        * $\sigma = \text{std\_dev}(Log\ Returns) \times \sqrt{12}$
-        * $\rho_{i,j} = \text{correlation}(Returns_i, Returns_j)$ - calculated across all assets in portfolio
-
-4.  **Benefits:**
-    * ✅ No API calls at runtime (instant loading, no rate limits)
-    * ✅ No CORS issues
-    * ✅ Works completely offline
-    * ✅ Truly stateless (no backend needed)
-    * ✅ Zero runtime costs
-    * ✅ Faster user experience (no API latency)
-
-5.  **Limitations:**
-    * Only supports pre-defined tickers (VT, QQQ, AVUV, BND, GLD, BTC)
-    * Data becomes stale (requires monthly updates)
-    * Cannot support arbitrary user-entered tickers
-
-6.  **Future Enhancement (Phase 2):**
-    * Optional API integration for custom tickers via serverless proxy
-    * For Phase 1, focus on the 6 pre-defined assets only
+- **Simulation Speed:** 10,000 iterations in < 5 seconds (typical laptop)
+- **Initial Load:** < 500KB total bundle (including CSV data)
+- **UI Responsiveness:** No freezing during computation (Web Worker ensures this)
 
 ---
 
-## 4. The Simulation Algorithm (Under the Hood)
+## 3. Data Strategy
 
-The simulation runs a loop for $N$ iterations (e.g., 5,000 or 10,000). For each iteration, it simulates the portfolio balance year-by-year across the total requested timeline.
+### Static Historical Data Files
 
-### Step 1: Handling Asset Correlation
-To simulate realistic market conditions where stocks crash together but gold or cash might stay flat, we cannot simply generate independent random returns for each asset. We must use a **Multivariate Normal Distribution**.
+**Approach:** Pre-fetch historical price data and store as static CSV files in the repository.
 
-1.  **Define the Correlation Matrix ($R$):** An $n \times n$ matrix defining how the $n$ assets move together. The correlation matrix will be **calculated from historical price data** when available for the selected assets.
-2.  **Define the Covariance Matrix ($\Sigma$):** Transformed from correlation using the standard deviations ($\sigma$) of each asset:
-    $$\Sigma_{i,j} = R_{i,j} \times \sigma_i \times \sigma_j$$
-3.  **Cholesky Decomposition:** Since drawing from a multivariate normal distribution directly in JS can be slow without heavy libraries, we use the Cholesky decomposition ($L$) of the covariance matrix, where $\Sigma = L L^T$.
-4.  **Generating Correlated Returns:** Every simulated year, we generate a vector of independent standard normal random variables $Z \sim N(0,1)$. We then calculate the correlated returns vector $X$ as:
-    $$X = \mu + L Z$$
-    Where $\mu$ is the vector of expected returns for the assets.
+#### Why Static Files?
 
-### Step 2: The Multi-Phase Spending Engine
-The spending engine maps the array of "Phases" into a flat array where index `i` represents the real dollar spend for year `i`.
+Traditional approach (live API calls) has major drawbacks:
+- ❌ CORS restrictions block browser calls
+- ❌ API keys exposed in client code (security risk)
+- ❌ Rate limits (most free tiers: 25-800 calls/day)
+- ❌ Network latency on every load
+- ❌ Requires backend proxy (adds complexity)
 
-**Logic Example:**
-* Input: Phase 1 ($50k for 15 years), Phase 2 ($30k for 40 years).
-* Flattened Array: `[50k, 50k ... (15 times) ... 30k, 30k ... (40 times)]`
+**Static files solve all of these:**
+- ✅ No API calls at runtime (instant loading)
+- ✅ No CORS issues
+- ✅ No rate limits
+- ✅ Works completely offline
+- ✅ Truly stateless (no backend)
+- ✅ Zero runtime costs
 
-During the simulation loop for Year $t$:
-1.  **Inflation adjustment:** Determine cumulative inflation $I_t = (1 + \text{inflation\_rate})^t$, where inflation_rate is the fixed rate (default 3%) provided by the user.
-2.  **Nominal Spend:** $S_{nominal} = \text{FlattenedSpend}[t] \times I_t$.
+#### Data File Structure
 
-### Step 3: The Year-by-Year Loop
-For each simulation (run $j$ from $1$ to $N$):
-1.  Set $Portfolio\_Balance = \text{Initial Deposit}$.
-2.  For each year $t$ from $1$ to $\text{Total Years}$:
-    * Generate the vector of correlated returns $X$ for that year.
-    * Calculate the total portfolio growth factor: $G = \sum (\text{Weight}_i \times X_i)$.
-    * Apply growth: $Portfolio = Portfolio \times (1 + G)$.
-    * Deduct Nominal Spending: $Portfolio = Portfolio - S_{nominal}$.
-    * **Annual Rebalancing:** Reset asset allocations to their target weights based on the new portfolio balance.
-    * If $Portfolio \le 0$ (including mid-year), mark this simulation run as a **Failure** and break the loop.
-3.  If the portfolio balance remains positive through all years, mark the run as a **Success**.
-4.  Calculate **Success Rate** = $(\text{Total Successful Runs} / N) \times 100$.
+```
+public/data/
+├── VT.csv      # Vanguard Total World Stock
+├── QQQ.csv     # Nasdaq 100
+├── AVUV.csv    # Avantis US Small Cap Value
+├── BND.csv     # Vanguard Total Bond
+├── GLD.csv     # Gold ETF
+└── BTC.csv     # Bitcoin
+```
+
+**CSV Format (Phase 1):**
+```csv
+date,close
+2015-01-01,45.67
+2015-02-01,46.01
+2015-03-01,46.89
+```
+
+**File Size:** ~300KB total for all 6 assets (negligible)
+
+#### Supported Assets (Phase 1)
+
+| Ticker | Name | Inception | Est. Data Points |
+|--------|------|-----------|------------------|
+| VT | Vanguard Total World | 2008 | ~200 months |
+| QQQ | Nasdaq 100 ETF | 1999 | ~300 months |
+| AVUV | Avantis Small Cap Value | 2019 | ~70 months |
+| BND | Vanguard Total Bond | 2007 | ~210 months |
+| GLD | SPDR Gold Shares | 2004 | ~250 months |
+| BTC | Bitcoin | 2010+ | ~180 months |
+
+**Data Coverage:** Maximum available historical data for each ticker (varies by asset age)
+
+#### Data Update Process
+
+**Script:** `scripts/update-data.js`
+
+**Process:**
+1. Developer manually runs script monthly (e.g., first day of month)
+2. Script fetches latest data from Twelve Data API (or similar)
+3. Converts to CSV format (`date,close`)
+4. Overwrites existing files in `public/data/`
+5. Developer commits updated CSVs to git
+
+**Frequency:** Monthly (historical monthly data rarely needs updates)
+
+**Automation:** Not needed for Phase 1 (manual is sufficient)
+
+**Script Design Requirements:**
+- Configurable field mapping (easy to add `open,high,low,volume` later)
+- Error handling for API failures
+- Validation of data integrity
+- Backwards compatible (old CSV format still works)
+
+#### Runtime Calculation
+
+When user adds an asset to portfolio:
+
+1. **Load CSV:** Fetch `/data/VT.csv` via standard HTTP request
+2. **Parse:** Convert CSV to array of `{date, price}` objects
+3. **Calculate Log Returns:** $\text{logReturn}_i = \ln(P_i / P_{i-1})$
+4. **Annualized Return:** $\mu = \text{mean}(\text{logReturns}) \times 12$
+5. **Annualized Volatility:** $\sigma = \text{std}(\text{logReturns}) \times \sqrt{12}$
+6. **Correlation Matrix:** After all assets loaded, calculate pairwise correlations: $\rho_{ij} = \text{corr}(\text{returns}_i, \text{returns}_j)$
+
+**Caching:** Browser automatically caches CSV files (304 Not Modified on reload)
+
+#### Limitations & Future Work
+
+**Phase 1 Limitations:**
+- Only 6 pre-defined tickers
+- Data becomes stale (requires monthly updates)
+- No support for custom/arbitrary tickers
+
+**Phase 2 Enhancements:**
+- Optional serverless proxy for custom tickers
+- User can input custom return/volatility if ticker not found
+- Automated data refresh via GitHub Actions
+
+---
+
+## 4. The Simulation Algorithm
+
+### Overview
+
+For each Monte Carlo run, simulate the portfolio year-by-year from retirement start to end. Track whether the portfolio survives (success) or depletes (failure).
+
+**Key Insight:** Must use correlated returns, not independent random draws. In real markets, VT and QQQ crash together; BND and GLD stay stable.
+
+### Step 1: Correlation & Covariance Matrix
+
+#### Define Correlation Matrix ($R$)
+
+An $n \times n$ matrix where $R_{ij}$ represents correlation between assets $i$ and $j$.
+
+**Example (3 assets):**
+```
+       VT    QQQ   BND
+VT   [1.00  0.95  0.10]
+QQQ  [0.95  1.00  0.15]
+BND  [0.10  0.15  1.00]
+```
+
+Interpretation:
+- VT and QQQ highly correlated (0.95) — both are stocks
+- VT and BND weakly correlated (0.10) — stock/bond diversification
+
+#### Calculate Covariance Matrix ($\Sigma$)
+
+Convert correlation to covariance using asset volatilities:
+
+$$\Sigma_{ij} = R_{ij} \times \sigma_i \times \sigma_j$$
+
+#### Cholesky Decomposition
+
+Decompose $\Sigma = L L^T$ where $L$ is lower triangular.
+
+**Why?** Allows efficient generation of correlated random returns.
+
+**Library:** Use `mathjs` or `simple-statistics` for Cholesky decomposition in JavaScript.
+
+#### Generate Correlated Returns
+
+For each simulated year:
+
+1. Generate independent standard normal random variables: $Z \sim N(0, 1)$ (one per asset)
+2. Transform to correlated returns: $X = \mu + L \cdot Z$
+
+Where:
+- $\mu$ = vector of expected returns $[\mu_1, \mu_2, ..., \mu_n]$
+- $L$ = Cholesky decomposition of covariance matrix
+- $Z$ = vector of independent standard normals
+- $X$ = resulting correlated returns for this year
+
+**Result:** $X$ contains realistic returns where assets move together according to historical correlations.
+
+### Step 2: Multi-Phase Spending Engine
+
+Users define spending in phases, e.g.:
+- Phase 1: $50,000/year for 15 years (ages 55-70, active retirement)
+- Phase 2: $30,000/year for 40 years (ages 70-110, reduced spending)
+
+**Implementation:** Flatten into array indexed by year:
+
+```javascript
+// Input: [{amount: 50000, years: 15}, {amount: 30000, years: 40}]
+// Output: [50k, 50k, ...(15x)..., 30k, 30k, ...(40x)...]
+const flatSpending = phases.flatMap(p => Array(p.years).fill(p.amount));
+```
+
+**Inflation Adjustment:**
+
+For year $t$:
+
+$$I_t = (1 + r_{inflation})^t$$
+
+$$S_{nominal}(t) = S_{real} \times I_t$$
+
+Where:
+- $r_{inflation}$ = fixed annual inflation rate (default 3%)
+- $S_{real}$ = real dollar spending amount (from phase definition)
+- $S_{nominal}(t)$ = inflation-adjusted spending in year $t$
+
+**Example:**
+- Phase 1: $50,000 real dollars
+- Year 1: $50,000 \times 1.03^1 = $51,500$
+- Year 10: $50,000 \times 1.03^{10} = $67,196$
+
+### Step 3: Year-by-Year Simulation Loop
+
+**Outer Loop:** Run $N$ simulations (e.g., 10,000)
+
+**Inner Loop:** For each simulation, iterate through years 1 to $T_{total}$
+
+#### Pseudocode
+
+```
+For each simulation run j = 1 to N:
+    Portfolio_Balance = Initial_Deposit
+
+    For each year t = 1 to Total_Years:
+        # 1. Generate returns for this year
+        Z = vector of n independent standard normals
+        X = μ + L · Z    # Correlated returns
+
+        # 2. Calculate portfolio growth
+        G = Σ(Weight_i × X_i)    # Weighted average return
+        Portfolio = Portfolio × (1 + G)
+
+        # 3. Deduct spending
+        Inflation_Factor = (1 + inflation_rate)^t
+        Spending = FlatSpending[t] × Inflation_Factor
+        Portfolio = Portfolio - Spending
+
+        # 4. Rebalance to target weights
+        # (Reset dollar amounts to maintain target % allocations)
+        RebalancePortfolio()
+
+        # 5. Check for failure
+        If Portfolio ≤ 0:
+            Mark run as FAILURE
+            Record failure_year = t
+            Break inner loop
+
+    If Portfolio > 0 at end:
+        Mark run as SUCCESS
+        Record ending_balance
+
+# Calculate statistics
+Success_Rate = (Successful_Runs / N) × 100%
+```
+
+#### Annual Rebalancing
+
+After growth and spending each year, reset asset allocations to target weights.
+
+**Example:**
+- Target: 60% VT ($120k), 40% BND ($80k)
+- After Year 1: VT grew to $135k, BND to $75k → Total = $210k
+- Rebalance: Sell $9k VT, buy $9k BND → VT = $126k (60%), BND = $84k (40%)
+
+**Implementation:**
+```javascript
+function rebalance(portfolio, targetWeights) {
+  const total = portfolio.reduce((sum, asset) => sum + asset.value, 0);
+  portfolio.forEach(asset => {
+    asset.value = total * targetWeights[asset.ticker];
+  });
+}
+```
+
+**Phase 2:** Add options for no rebalancing, quarterly rebalancing, etc.
+
+### Step 4: Track Statistics Across Simulations
+
+For each simulation run, store:
+- Success/failure status
+- Ending balance (if success)
+- Year of failure (if failure)
+- Portfolio balance at each year (for percentile calculations)
+
+**Storage Structure:**
+```javascript
+const results = {
+  runs: [
+    { success: true, endingBalance: 1250000, balancesByYear: [...] },
+    { success: false, failureYear: 23, balancesByYear: [...] },
+    // ... 10,000 entries
+  ]
+};
+```
+
+**Post-Processing:**
+
+Calculate aggregate statistics:
+- **Success Rate:** % of runs where portfolio survived
+- **Median Ending Balance:** 50th percentile of successful runs
+- **Percentile Bands:** 10th, 25th, 50th, 75th, 90th percentiles at each year
+- **Worst Case:** Minimum ending balance among successes
+- **Years to Failure:** Average/median for failed runs
 
 ---
 
 ## 5. UI/UX Component Breakdown
 
 ### Component 1: Portfolio Setup
-* **Table Rows:** Dynamic array of inputs.
-* **State:** Array of objects `[{ ticker: 'VT', value: 200000, return: 0.09, vol: 0.17 }]`.
-* **Input Format:** Users enter dollar values ($) for each asset, not percentages.
-* **Auto-Calculations:** Displays running total of portfolio value and percentage weight of each row in real-time (calculated from $ values).
-* **Validation:** Initial deposit must be greater than zero to run simulation.
+
+**Purpose:** Define initial portfolio composition
+
+**UI Elements:**
+- Dynamic table with "Add Asset" button
+- Each row: [Ticker Dropdown] [$Amount Input] [Remove Button]
+- Ticker dropdown: VT, QQQ, AVUV, BND, GLD, BTC
+- Auto-calculated fields (read-only):
+  - Total portfolio value
+  - % weight of each asset
+  - Expected return (calculated from CSV data)
+  - Volatility (calculated from CSV data)
+
+**State Management:**
+```javascript
+const [portfolio, setPortfolio] = useState([
+  { ticker: 'VT', value: 200000, mu: 0.09, sigma: 0.17 },
+  { ticker: 'BND', value: 100000, mu: 0.04, sigma: 0.05 }
+]);
+```
+
+**Validation:**
+- Total portfolio value must be > $0
+- Each asset value must be > $0
+- Cannot add same ticker twice
+- Show error messages inline
+
+**Data Loading:**
+When user selects ticker from dropdown:
+1. Fetch `/data/{TICKER}.csv`
+2. Calculate μ and σ from historical returns
+3. Update portfolio state with calculated values
+4. Display "Loading..." state during fetch
 
 ### Component 2: Multi-Phase Spending Builder
-* **Inputs:** `[ Spending Amount ]` and `[ Duration in Years ]`.
-* **Action:** "Add Phase" button creates a new row.
-* **Design:** Phases are entered in a continuous sequence. Each new phase automatically starts where the previous phase ended, preventing gaps or overlaps.
-  * Example: Phase 1 (15 years) covers Years 1-15. Phase 2 (30 years) automatically starts at Year 16 and covers Years 16-45.
-* **Validation:** Spending amounts must be positive (greater than zero).
-* **Guardrails:** Total years automatically sums up at the bottom to show the user the total duration of their retirement.
+
+**Purpose:** Define retirement spending over time
+
+**UI Elements:**
+- List of spending phases (starts with 1 default phase)
+- Each phase row: [$Amount/Year Input] [Years Duration Input] [Remove Button]
+- "Add Phase" button at bottom
+- Auto-calculated summary:
+  - Total years: sum of all phase durations
+  - Total lifetime spending: sum of all phase amounts
+
+**UX Design:**
+Phases are **continuous and sequential** — no gaps or overlaps.
+
+**Example Display:**
+```
+Phase 1: $50,000/year    Years: 15    (Covers: Age 55-70)
+Phase 2: $30,000/year    Years: 40    (Covers: Age 70-110)
+
+Total Retirement Duration: 55 years
+```
+
+**Validation:**
+- Spending amounts must be > $0
+- Duration must be > 0 years
+- Show error messages inline
+
+**State Management:**
+```javascript
+const [phases, setPhases] = useState([
+  { amount: 50000, years: 15 },
+  { amount: 30000, years: 40 }
+]);
+```
 
 ### Component 3: Configuration & Execution
-* **Inputs:**
-  * Expected baseline inflation (user input, default: 3%, fixed rate for Phase 1)
-  * Number of simulations (dropdown: 1k, 5k, 10k)
-* **Action:** "Run Simulation" button.
-* **State:** Triggers the Web Worker to run the simulation math loop, preventing UI freeze during computation.
 
-### Component 4: Results Display (Output)
-* **Hero Stat:** Large percentage success rate with a color gradient (Red < 70%, Yellow 70-90%, Green > 90%).
-* **Statistics Panel:**
-  * Median ending balance
-  * Percentile bands (10th, 25th, 75th, 90th percentiles)
-  * Worst-case scenario balance
-  * Years until failure (for failed runs)
-* **The Line Chart:** Displays percentile bands (10th, 25th, 50th/median, 75th, 90th) showing the distribution of portfolio values over time.
+**Purpose:** Set simulation parameters and run the simulation
+
+**UI Elements:**
+- **Inflation Rate:** Input field (default: 3%) with % label
+- **Number of Simulations:** Dropdown (1,000 / 5,000 / 10,000)
+- **Run Simulation:** Large primary button
+
+**Pre-Flight Validation:**
+
+Before allowing simulation to run, check:
+- ✅ Portfolio has at least 1 asset
+- ✅ Total portfolio value > $0
+- ✅ At least 1 spending phase defined
+- ✅ All spending amounts > $0
+- ✅ Inflation rate is a valid number
+
+If validation fails, disable button and show error messages.
+
+**Execution Flow:**
+1. User clicks "Run Simulation"
+2. Button shows loading state: "Simulating... X%"
+3. Spawn Web Worker with simulation parameters
+4. Worker sends progress updates every 10% (1,000 / 5,000 / 10,000)
+5. Worker returns results when complete
+6. Display results in Component 4
+
+**Web Worker Communication:**
+```javascript
+// Main thread
+const worker = new Worker('simulation-worker.js');
+worker.postMessage({
+  portfolio: [...],
+  phases: [...],
+  inflation: 0.03,
+  iterations: 10000
+});
+
+worker.onmessage = (e) => {
+  if (e.data.type === 'progress') {
+    setProgress(e.data.percent);
+  } else if (e.data.type === 'complete') {
+    setResults(e.data.results);
+  }
+};
+```
+
+### Component 4: Results Display
+
+**Purpose:** Visualize simulation outcomes
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  🎯 Success Rate: 87%        [Color: Yellow/Green]  │
+│  Based on 10,000 simulations                        │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  📊 Statistics                                      │
+│  • Median Ending Balance:     $1,250,000           │
+│  • 10th Percentile:           $450,000              │
+│  • 90th Percentile:           $3,100,000            │
+│  • Worst Case (Success):      $125,000              │
+│  • Avg Years to Failure:      23 years              │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  📈 Portfolio Value Over Time                       │
+│  [Chart showing percentile bands]                   │
+│                                                     │
+│   $3M ┤           ╱╲     90th percentile            │
+│   $2M ┤         ╱    ╲   75th percentile            │
+│   $1M ┼───────╱──────╲── 50th (median)              │
+│   $500K┤     ╱          ╲ 25th percentile           │
+│   $0  ┤───╱─────────────╲10th percentile            │
+│       └─────────────────────────────────────────    │
+│        0y   10y   20y   30y   40y   50y             │
+└─────────────────────────────────────────────────────┘
+```
+
+**Success Rate Color Coding:**
+- **Red** (< 70%): High risk, portfolio likely to fail
+- **Yellow** (70-90%): Moderate risk, acceptable but not ideal
+- **Green** (> 90%): Low risk, high confidence
+
+**Chart Implementation:**
+
+Use Chart.js or Recharts to display:
+- X-axis: Years (0 to total duration)
+- Y-axis: Portfolio value ($)
+- 5 lines representing percentile bands:
+  - 10th percentile (bottom band)
+  - 25th percentile
+  - 50th percentile (median, bold line)
+  - 75th percentile
+  - 90th percentile (top band)
+
+Fill area between bands with subtle shading.
+
+**Interactivity:**
+- Hover over chart to see exact values at each year
+- Toggle percentile bands on/off
+- Download results as CSV (optional)
 
 ---
 
-## 6. Future Considerations (Phase 2)
-* **Taxes:** Adding a flat percentage tax on withdrawals.
-* **Shareable URLs:** Since the app is stateless, encoding the user's inputs into a base64 string and appending it to the URL hash (e.g., `app.com/#config=xyz...`) allows users to bookmark or share their specific scenario without a database.
+## 6. Implementation Plan
+
+### Phase 1 Build Order
+
+**0. Data Preparation** (prerequisite)
+- Create `scripts/update-data.js` to fetch historical data
+- Run script to generate initial CSV files for all 6 tickers
+- Commit CSVs to `public/data/`
+- **Deliverable:** 6 CSV files with maximum historical data
+
+**1. Simulation Engine** (core math)
+- Implement correlation matrix calculation
+- Implement Cholesky decomposition
+- Implement correlated random return generation
+- Implement year-by-year simulation logic
+- Create Web Worker wrapper
+- Unit tests for math functions
+- **Deliverable:** `simulation-engine.js` and `simulation-worker.js`
+
+**2. Portfolio Setup UI**
+- Build dynamic asset table
+- Implement CSV loading and parsing
+- Calculate μ, σ from historical data
+- Display calculated statistics
+- Validation logic
+- **Deliverable:** Working portfolio builder with data loading
+
+**3. Results Display & Visualization**
+- Calculate percentile bands from simulation results
+- Implement Chart.js/Recharts visualization
+- Display statistics panel
+- Success rate color coding
+- **Deliverable:** Results page showing percentile bands
+
+**4. Multi-Phase Spending Builder**
+- Build phase input UI
+- Implement continuous phase chaining
+- Display total years summary
+- Validation logic
+- **Deliverable:** Working spending phase builder
+
+**5. Integration & Polish**
+- Wire all components together
+- Add loading states
+- Error handling
+- Responsive design (mobile-friendly)
+- Performance optimization
+- **Deliverable:** Fully functional MVP
+
+### Key Technical Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Data Strategy** | Static CSV files | Eliminates API dependencies, CORS issues, rate limits |
+| **CSV Format** | `date,close` (minimal) | Sufficient for Phase 1, easily extensible |
+| **Data Coverage** | Maximum per ticker | Better statistics from more data |
+| **Update Process** | Manual monthly | Simple, no automation overhead |
+| **Inflation Model** | Fixed rate (3% default) | Phase 1 simplicity, stochastic in Phase 2 |
+| **Correlation Calc** | From historical data | Accurate, real correlations |
+| **Rebalancing** | Annual | Standard assumption, options in Phase 2 |
+| **Chart Type** | Percentile bands only | Clean visualization, individual paths in Phase 2 |
+| **Statistics** | All 4 metrics | Comprehensive view (median, percentiles, worst case, failure years) |
+| **Web Worker** | From start | Prevents UI freeze for 10k iterations |
+| **Browser Support** | Modern only | Cleaner code, smaller bundle |
+
+### File Structure
+
+```
+fire-calculator/
+├── public/
+│   └── data/
+│       ├── VT.csv
+│       ├── QQQ.csv
+│       ├── AVUV.csv
+│       ├── BND.csv
+│       ├── GLD.csv
+│       └── BTC.csv
+├── src/
+│   ├── components/
+│   │   ├── PortfolioSetup.jsx
+│   │   ├── SpendingBuilder.jsx
+│   │   ├── Configuration.jsx
+│   │   └── ResultsDisplay.jsx
+│   ├── lib/
+│   │   ├── simulation-engine.js
+│   │   ├── data-loader.js
+│   │   └── statistics.js
+│   ├── workers/
+│   │   └── simulation-worker.js
+│   ├── App.jsx
+│   └── main.jsx
+├── scripts/
+│   └── update-data.js
+├── package.json
+├── vite.config.js
+└── TDD.txt (this file)
+```
+
+### Validation Rules Summary
+
+**Portfolio:**
+- ✅ At least 1 asset
+- ✅ Total value > $0
+- ✅ Each asset value > $0
+- ❌ Cannot add same ticker twice
+
+**Spending Phases:**
+- ✅ At least 1 phase
+- ✅ Each amount > $0
+- ✅ Each duration > 0
+- ✅ Phases are continuous (enforced by UI design)
+
+**Configuration:**
+- ✅ Inflation rate is a valid number
+- ✅ Simulation count is valid (1k, 5k, or 10k)
+
+**Failure Conditions:**
+- Portfolio goes to $0 or negative during any year → Mark as failed run
+- Record the year of failure for statistics
 
 ---
 
-## 7. Open Questions & Decisions Needed
+## 7. Future Considerations (Phase 2)
 
-**Status:** ✅ All design questions have been answered. Ready for implementation.
+### Planned Enhancements
+
+**Stochastic Inflation**
+- Replace fixed 3% with distribution (e.g., mean 3%, std dev 1.5%)
+- Each simulation year draws random inflation rate
+- More realistic modeling of inflation uncertainty
+
+**Custom Tickers**
+- Serverless proxy (Vercel/Cloudflare Workers) for API calls
+- User can input any ticker symbol
+- Fallback: manual μ/σ entry if ticker not found
+
+**Tax Modeling**
+- Add flat % tax on withdrawals
+- Pre-tax vs post-tax account modeling
+- RMD (Required Minimum Distribution) calculations
+
+**Shareable Scenarios**
+- Encode inputs as base64 string in URL hash
+- Share link: `app.com/#config=eyJ...`
+- No database needed, fully stateless
+
+**Additional Rebalancing Strategies**
+- Quarterly rebalancing
+- Threshold-based (rebalance if drift > 5%)
+- No rebalancing (let portfolio drift)
+
+**Individual Simulation Paths**
+- Toggle to show sample paths on chart (e.g., 50 random runs)
+- Complements percentile bands
+
+**Export Results**
+- Download CSV of simulation results
+- PDF report generation
+
+**Social Security Integration**
+- Model social security income streams
+- Reduce spending needs after age 62/67
 
 ---
 
+## 8. Appendix
+
+### Mathematical Notation Reference
+
+| Symbol | Meaning |
+|--------|---------|
+| $N$ | Number of Monte Carlo iterations (e.g., 10,000) |
+| $n$ | Number of assets in portfolio |
+| $t$ | Year number (1 to $T_{total}$) |
+| $\mu_i$ | Expected annual return of asset $i$ |
+| $\sigma_i$ | Annual volatility (std dev) of asset $i$ |
+| $R$ | Correlation matrix ($n \times n$) |
+| $\Sigma$ | Covariance matrix ($n \times n$) |
+| $L$ | Cholesky decomposition of $\Sigma$ |
+| $Z$ | Vector of independent standard normals |
+| $X$ | Vector of correlated returns |
+| $I_t$ | Cumulative inflation factor at year $t$ |
+
+### Data Sources & APIs (for reference)
+
+**Recommended for `update-data.js` script:**
+- **Twelve Data** (800 calls/day free): https://twelvedata.com
+- **Alpha Vantage** (25 calls/day free): https://alphavantage.co
+- **CoinGecko** (10k calls/month free, crypto only): https://coingecko.com
+
+**See also:** `SERVERLESS_PROXY_GUIDE.md` and `API_RESEARCH.md` for detailed API comparisons.
+
+### Calculation Examples
+
+**Annualized Return from Monthly Data:**
+```
+Monthly returns: [0.02, -0.01, 0.03, 0.01, ...]
+Mean monthly return: 0.0075
+Annualized return: 0.0075 × 12 = 0.09 (9%)
+```
+
+**Annualized Volatility from Monthly Data:**
+```
+Std dev of monthly returns: 0.05
+Annualized volatility: 0.05 × √12 = 0.173 (17.3%)
+```
+
+**Correlation Calculation:**
+```
+VT monthly returns: [0.02, -0.01, 0.03, ...]
+QQQ monthly returns: [0.025, -0.015, 0.032, ...]
+Correlation(VT, QQQ) = 0.95 (highly correlated)
+```
+
+### Performance Benchmarks (Target)
+
+| Metric | Target | Notes |
+|--------|--------|-------|
+| Initial page load | < 2s | Including CSV downloads |
+| 1,000 simulations | < 1s | With Web Worker |
+| 10,000 simulations | < 5s | With Web Worker |
+| CSV file size | < 50KB each | Minimal format |
+| Total bundle size | < 500KB | Vite-optimized |
+| Memory usage | < 100MB | During 10k simulations |
+
+### Testing Checklist
+
+**Unit Tests:**
+- [ ] Correlation matrix calculation
+- [ ] Cholesky decomposition
+- [ ] Return/volatility calculations from CSV
+- [ ] Inflation adjustment formula
+- [ ] Rebalancing logic
+
+**Integration Tests:**
+- [ ] CSV loading and parsing
+- [ ] Full simulation run (1k iterations)
+- [ ] Percentile calculation from results
+- [ ] Phase flattening logic
+
+**Manual Testing:**
+- [ ] Portfolio with 1 asset works
+- [ ] Portfolio with 6 assets works
+- [ ] Single phase spending works
+- [ ] Multi-phase spending works
+- [ ] Validation errors display correctly
+- [ ] Results update after re-running simulation
+- [ ] Chart renders correctly
+- [ ] Mobile responsive
+- [ ] Works offline (after first load)
+
 ---
 
-## 8. Decisions Made
+## Document History
 
-### 8.1 Inflation Model
-**Decision:** ✅ Phase 1 uses a fixed inflation rate with user input (default: 3%). Stochastic/historical inflation modeling will be added in Phase 2.
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2026-03-31 | Initial complete TDD, ready for implementation |
 
-### 8.2 Correlation Matrix Calculation
-**Decision:** ✅ Correlation matrix will be calculated from historical price data. The data will be loaded from pre-fetched static CSV files stored in the repository, ensuring instant access without API calls at runtime.
+---
 
-### 8.3 Static Historical Data Strategy
-**Decision:** ✅ Phase 1 will use pre-fetched static CSV files for historical price data instead of runtime API calls. This approach:
-- Eliminates API dependencies, CORS issues, and rate limits at runtime
-- Provides instant loading and better UX
-- Maintains true statelessness (no backend required)
-- Supports 6 pre-defined assets: VT, QQQ, AVUV, BND, GLD, BTC
-- Data files (~200KB total) stored in `public/data/`
-- Monthly updates via separate script (can be automated)
-- Runtime API integration for custom tickers deferred to Phase 2
-
-### 8.4 Tech Stack
-**Decision:** ✅ Vite + React (lightweight and optimized for pure client-side applications).
-
-### 8.5 Edge Cases & Validation Rules
-**Decision:** ✅ Validation rules established:
-- **Negative spending amounts:** Show error message and prevent simulation from running.
-- **Zero initial deposit:** Prevent simulation from running (validation: initial deposit must be > 0).
-- **Spending phases with gaps or overlaps:** Not possible by design—UI enforces continuous sequence of phases.
-- **Asset weights not summing to 100%:** Not applicable—users enter dollar values ($), not percentages. Weights are auto-calculated.
-- **Portfolio goes negative mid-year:** Treated as a failed run; simulation stops for that iteration.
-
-### 8.6 Portfolio Rebalancing
-**Decision:** ✅ Phase 1 defaults to annual rebalancing. Each year, after growth and spending, the portfolio resets asset allocations to their target weights. Quarterly rebalancing and other options will be added in Phase 2.
-
-### 8.7 Browser Compatibility
-**Decision:** ✅ Support modern browsers only (Chrome, Firefox, Safari, Edge - last 2 versions).
-
-### 8.8 Results & Statistics Display
-**Decision:** ✅ Display comprehensive statistics beyond success rate:
-- Median ending balance
-- Percentile bands (10th, 25th, 75th, 90th percentiles)
-- Worst-case scenario balance
-- Years until failure (for failed runs)
-
-### 8.9 Chart Visualization
-**Decision:** ✅ Phase 1 will display percentile bands only (10th, 25th, 50th/median, 75th, 90th) on the chart to keep visualization clean and simple. Individual simulation paths may be added in Phase 2.
-
-### 8.10 Implementation Order
-**Decision:** ✅ Components will be built in this sequence:
-0. Static historical data preparation (fetch and prepare CSV files for 6 assets)
-1. Simulation engine (core math)
-2. Portfolio setup UI
-3. Results display & visualization
-4. Multi-phase spending builder
-
-### 8.11 Web Worker Implementation
-**Decision:** ✅ Web Worker will be implemented from the start to prevent UI freezing during simulations, especially for large iteration counts (10k simulations).
-
-### 8.12 Static Data File Preparation
-**Decision:** ✅ Historical data strategy:
-- **Data Coverage:** Fetch maximum available historical data for each ticker (as far back as data exists)
-- **Update Process:** Manual monthly updates - developer runs data fetch script and commits updated CSV files to repository
-- **No Automation:** GitHub Actions or automated updates are not needed for Phase 1; manual process is sufficient
-
-### 8.13 CSV File Format
-**Decision:** ✅ Phase 1 will use minimal CSV format:
-- **Format:** `date,close` (two columns only)
-- **Rationale:** Simplest format, smallest file size, sufficient for return/volatility/correlation calculations
-- **Flexibility:** Data fetcher script must be designed to easily add more fields (e.g., `open,high,low,volume,adjusted_close`) in future phases without major refactoring
-- **Script Design:** Use configurable field mapping so adding columns requires minimal code changes
+**End of Technical Design Document**
