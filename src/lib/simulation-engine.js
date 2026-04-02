@@ -295,8 +295,8 @@ export function runSingleSimulation(params) {
       portfolioReturn += weights[ticker] * returns[idx];
     });
 
-    // 3. Apply growth
-    portfolioBalance *= (1 + portfolioReturn);
+    // 3. Apply growth (using exp because returns are log returns)
+    portfolioBalance *= Math.exp(portfolioReturn);
 
     // 4. Deduct inflation-adjusted spending
     const inflationFactor = Math.pow(1 + inflationRate, year);

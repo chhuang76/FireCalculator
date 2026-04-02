@@ -202,7 +202,7 @@ function runSingleSimulation(params) {
       portfolioReturn += weights[ticker] * returns[idx];
     });
 
-    portfolioBalance *= (1 + portfolioReturn);
+    portfolioBalance *= Math.exp(portfolioReturn);
 
     const inflationFactor = Math.pow(1 + inflationRate, year);
     const nominalSpending = flatSpending[year - 1] * inflationFactor;

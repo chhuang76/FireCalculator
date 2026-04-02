@@ -442,14 +442,18 @@ percentile(sortedArray, 50)
 
 Portfolio value evolves as:
 ```
-S(t+1) = S(t) × exp(r + σ×Z)
+S(t+1) = S(t) × exp(r)
 ```
 
 Where:
 - S(t) = portfolio value at time t
-- r = expected return
-- σ = volatility
-- Z ~ N(0,1) = standard normal random
+- r = log return (from correlated normal distribution)
+- **Important:** We use `exp(r)` not `(1 + r)` because returns are log returns
+
+**Why exp()?**
+- Data loader calculates: `r = ln(P_t / P_{t-1})` (log returns)
+- To apply: `P_{t+1} = P_t × exp(r)` (exponential growth)
+- **NOT:** `P_{t+1} = P_t × (1 + r)` (this would be wrong for log returns)
 
 ### 2. Multivariate Normal Distribution
 
