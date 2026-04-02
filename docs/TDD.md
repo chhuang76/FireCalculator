@@ -291,10 +291,12 @@ Detailed design rationale is documented in component-specific TDDs:
 
 ## References
 
-- **Implementation Details:** See component-specific TDDs in [`docs/tdd/`](tdd/)
-- **Historical Context:** See original [`TDD.txt`](TDD.txt) (archived)
-- **Step Documentation:** [`STEP0_COMPLETE.md`](STEP0_COMPLETE.md), [`STEP1_COMPLETE.md`](STEP1_COMPLETE.md), etc.
-- **Data Guide:** [`DIVIDENDS.md`](DIVIDENDS.md), [`TESTING_REAL_DATA.md`](TESTING_REAL_DATA.md)
+### Current Documentation
+- **Component-Specific TDDs:** See [`docs/tdd/`](tdd/) for detailed component documentation
+- **Data Guides:** [`DIVIDENDS.md`](DIVIDENDS.md), [`TESTING_REAL_DATA.md`](TESTING_REAL_DATA.md), [`API_RESEARCH.md`](API_RESEARCH.md)
+
+### Historical/Archived
+- **Development History:** See [`archive/`](archive/) for step-by-step implementation logs (STEP0-3)
 
 ---
 
