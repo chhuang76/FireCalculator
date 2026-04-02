@@ -13,12 +13,16 @@ const AVAILABLE_TICKERS = [
   { value: 'SHV', label: 'SHV - iShares 0-1 Year Treasury Bond ETF' }
 ];
 
-function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }) {
+function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, totalPortfolioValue, setTotalPortfolioValue }) {
   const [loadingTickers, setLoadingTickers] = useState({});
   const [errors, setErrors] = useState({});
+  const [mode, setMode] = useState('dollar'); // 'dollar' or 'percentage'
 
   // Calculate total portfolio value and weights
   const totalValue = portfolio.reduce((sum, asset) => sum + (parseFloat(asset.value) || 0), 0);
+
+  // Calculate total percentage
+  const totalPercentage = portfolio.reduce((sum, asset) => sum + (parseFloat(asset.percentage) || 0), 0);
 
   // Load ticker data when a new ticker is added
   const loadTickerData = async (ticker, index) => {
@@ -48,11 +52,56 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
     }
   };
 
+  // Switch between dollar and percentage mode
+  const switchMode = (newMode) => {
+    if (newMode === mode) return;
+
+    if (newMode === 'percentage') {
+      // Switching from dollar to percentage mode
+      // Set total portfolio value from current total
+      setTotalPortfolioValue(totalValue.toString());
+
+      // Calculate percentages from dollar values
+      const updatedPortfolio = portfolio.map(asset => {
+        const percentage = totalValue > 0
+          ? ((parseFloat(asset.value) || 0) / totalValue) * 100
+          : 0;
+        return { ...asset, percentage: percentage.toFixed(2) };
+      });
+      setPortfolio(updatedPortfolio);
+    } else {
+      // Switching from percentage to dollar mode
+      // Calculate dollar values from percentages
+      const total = parseFloat(totalPortfolioValue) || 0;
+      const updatedPortfolio = portfolio.map(asset => {
+        const value = ((parseFloat(asset.percentage) || 0) / 100) * total;
+        return { ...asset, value: value.toFixed(0) };
+      });
+      setPortfolio(updatedPortfolio);
+    }
+
+    setMode(newMode);
+  };
+
+  // Update percentage (percentage mode only)
+  const updatePercentage = (id, percentage) => {
+    setPortfolio(portfolio.map(asset =>
+      asset.id === id ? { ...asset, percentage } : asset
+    ));
+  };
+
+  // Calculate dollar value from percentage
+  const getCalculatedValue = (percentage) => {
+    const total = parseFloat(totalPortfolioValue) || 0;
+    if (!total || !percentage) return 0;
+    return ((parseFloat(percentage) / 100) * total);
+  };
+
   // Add new asset row
   const addAsset = () => {
     setPortfolio([
       ...portfolio,
-      { id: Date.now(), ticker: '', value: '' }
+      { id: Date.now(), ticker: '', value: '', percentage: '' }
     ]);
   };
 
@@ -108,13 +157,58 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
         <p>Add your investment assets (you can add the same ticker multiple times for different accounts)</p>
       </div>
 
+      {/* Mode Switcher */}
+      <div className="mode-switcher">
+        <button
+          className={`mode-btn ${mode === 'dollar' ? 'active' : ''}`}
+          onClick={() => switchMode('dollar')}
+        >
+          💵 Dollar Value Mode
+        </button>
+        <button
+          className={`mode-btn ${mode === 'percentage' ? 'active' : ''}`}
+          onClick={() => switchMode('percentage')}
+        >
+          📊 Percentage Mode
+        </button>
+      </div>
+
+      {/* Total Portfolio Value (Percentage Mode Only) */}
+      {mode === 'percentage' && (
+        <div className="total-portfolio-input">
+          <label htmlFor="total-portfolio-value">Total Portfolio Value:</label>
+          <div className="input-with-prefix">
+            <span className="prefix">$</span>
+            <input
+              id="total-portfolio-value"
+              type="number"
+              value={totalPortfolioValue}
+              onChange={(e) => setTotalPortfolioValue(e.target.value)}
+              placeholder="1000000"
+              min="0"
+              step="1000"
+              className="total-value-input"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="portfolio-table-container">
         <table className="portfolio-table">
           <thead>
             <tr>
               <th>Ticker</th>
-              <th>Value ($)</th>
-              <th>Weight (%)</th>
+              {mode === 'dollar' ? (
+                <>
+                  <th>Value ($)</th>
+                  <th>Weight (%)</th>
+                </>
+              ) : (
+                <>
+                  <th>Allocation (%)</th>
+                  <th>Calculated Value</th>
+                </>
+              )}
               <th>Return (μ)</th>
               <th>Volatility (σ)</th>
               <th></th>
@@ -124,6 +218,7 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
             {portfolio.map((asset, index) => {
               const stats = getStats(asset.ticker);
               const weight = getWeight(asset.value);
+              const calculatedValue = getCalculatedValue(asset.percentage);
 
               return (
                 <tr key={asset.id}>
@@ -141,21 +236,47 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
                     </select>
                   </td>
 
-                  <td>
-                    <input
-                      type="number"
-                      value={asset.value}
-                      onChange={(e) => updateValue(asset.id, e.target.value)}
-                      placeholder="0"
-                      min="0"
-                      step="1000"
-                      className="value-input"
-                    />
-                  </td>
+                  {mode === 'dollar' ? (
+                    <>
+                      <td>
+                        <input
+                          type="number"
+                          value={asset.value}
+                          onChange={(e) => updateValue(asset.id, e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="1000"
+                          className="value-input"
+                        />
+                      </td>
 
-                  <td className="weight-cell">
-                    {weight > 0 ? weight.toFixed(1) + '%' : '-'}
-                  </td>
+                      <td className="weight-cell">
+                        {weight > 0 ? weight.toFixed(1) + '%' : '-'}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        <div className="input-with-suffix">
+                          <input
+                            type="number"
+                            value={asset.percentage}
+                            onChange={(e) => updatePercentage(asset.id, e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            className="percentage-input"
+                          />
+                          <span className="suffix">%</span>
+                        </div>
+                      </td>
+
+                      <td className="calculated-value-cell">
+                        {calculatedValue > 0 ? '$' + calculatedValue.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '-'}
+                      </td>
+                    </>
+                  )}
 
                   <td className="stats-cell">
                     {stats === 'loading' ? (
@@ -198,8 +319,26 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
           <tfoot>
             <tr className="total-row">
               <td><strong>Total</strong></td>
-              <td><strong>${totalValue.toLocaleString()}</strong></td>
-              <td><strong>{totalValue > 0 ? '100.0%' : '-'}</strong></td>
+              {mode === 'dollar' ? (
+                <>
+                  <td><strong>${totalValue.toLocaleString()}</strong></td>
+                  <td><strong>{totalValue > 0 ? '100.0%' : '-'}</strong></td>
+                </>
+              ) : (
+                <>
+                  <td>
+                    <strong>
+                      {totalPercentage.toFixed(1)}%
+                      {Math.abs(totalPercentage - 100) < 0.1 ? (
+                        <span className="validation-ok"> ✓</span>
+                      ) : (
+                        <span className="validation-error"> ⚠️</span>
+                      )}
+                    </strong>
+                  </td>
+                  <td><strong>${(parseFloat(totalPortfolioValue) || 0).toLocaleString()}</strong></td>
+                </>
+              )}
               <td colSpan="3"></td>
             </tr>
           </tfoot>
@@ -211,6 +350,30 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
           + Add Asset
         </button>
       </div>
+
+      {/* Validation Banner (Percentage Mode Only) */}
+      {mode === 'percentage' && (
+        <div className={`allocation-validation ${
+          Math.abs(totalPercentage - 100) < 0.1 ? 'valid' : 'invalid'
+        }`}>
+          {Math.abs(totalPercentage - 100) < 0.1 ? (
+            <>
+              <span className="validation-icon">✓</span>
+              <span>Allocation: {totalPercentage.toFixed(1)}% - Ready to run simulation</span>
+            </>
+          ) : totalPercentage < 100 ? (
+            <>
+              <span className="validation-icon">⚠️</span>
+              <span>Allocation: {totalPercentage.toFixed(1)}% - Add {(100 - totalPercentage).toFixed(1)}% more to reach 100%</span>
+            </>
+          ) : (
+            <>
+              <span className="validation-icon">⚠️</span>
+              <span>Allocation: {totalPercentage.toFixed(1)}% - Reduce by {(totalPercentage - 100).toFixed(1)}% to reach 100%</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Error Messages */}
       {Object.entries(errors).map(([ticker, error]) => error && (

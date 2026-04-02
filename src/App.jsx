@@ -15,6 +15,7 @@ function App() {
   const [iterations, setIterations] = useState(10000);
   const [tickerStats, setTickerStats] = useState({}); // Shared ticker data
   const [alignmentError, setAlignmentError] = useState(null); // Errors before simulation
+  const [totalPortfolioValue, setTotalPortfolioValue] = useState(''); // For percentage mode
 
   // Simulation hook
   const { isRunning, progress, results, error, runSimulation } = useSimulation();
@@ -23,20 +24,47 @@ function App() {
   const validateInputs = () => {
     const errors = [];
 
-    // Validate portfolio
-    if (portfolio.length === 0 || !portfolio.some(a => a.ticker && a.value > 0)) {
-      errors.push('Add at least one asset to your portfolio');
-    }
+    // Detect if using percentage mode (any asset has percentage field)
+    const isPercentageMode = portfolio.some(a => a.percentage !== undefined && a.percentage !== '');
 
-    // Check for incomplete portfolio entries
-    const hasIncompleteTickers = portfolio.some(a => a.ticker && !a.value);
-    if (hasIncompleteTickers) {
-      errors.push('Enter a value for all selected tickers');
-    }
+    if (isPercentageMode) {
+      // Validate percentage mode
+      if (portfolio.length === 0 || !portfolio.some(a => a.ticker && parseFloat(a.percentage) > 0)) {
+        errors.push('Add at least one asset to your portfolio');
+      }
 
-    const hasIncompleteValues = portfolio.some(a => a.value && !a.ticker);
-    if (hasIncompleteValues) {
-      errors.push('Select a ticker for all entered values');
+      // Check for incomplete portfolio entries
+      const hasIncompleteTickers = portfolio.some(a => a.ticker && !a.percentage);
+      if (hasIncompleteTickers) {
+        errors.push('Enter a percentage for all selected tickers');
+      }
+
+      const hasIncompletePercentages = portfolio.some(a => a.percentage && !a.ticker);
+      if (hasIncompletePercentages) {
+        errors.push('Select a ticker for all entered percentages');
+      }
+
+      // Validate percentages sum to 100%
+      const totalPercentage = portfolio.reduce((sum, asset) => sum + (parseFloat(asset.percentage) || 0), 0);
+      if (Math.abs(totalPercentage - 100) >= 0.1) {
+        errors.push(`Portfolio allocation must equal 100% (currently ${totalPercentage.toFixed(1)}%)`);
+      }
+    } else {
+      // Validate dollar mode
+      if (portfolio.length === 0 || !portfolio.some(a => a.ticker && a.value > 0)) {
+        errors.push('Add at least one asset to your portfolio');
+      }
+
+      // Check for incomplete portfolio entries
+      const hasIncompleteTickers = portfolio.some(a => a.ticker && !a.value);
+      if (hasIncompleteTickers) {
+        errors.push('Enter a value for all selected tickers');
+      }
+
+      const hasIncompleteValues = portfolio.some(a => a.value && !a.ticker);
+      if (hasIncompleteValues) {
+        errors.push('Select a ticker for all entered values');
+      }
     }
 
     // Validate phases
@@ -52,7 +80,13 @@ function App() {
 
     // Check if we have statistics for all tickers
     const tickersNeedingStats = portfolio
-      .filter(a => a.ticker && a.value > 0)
+      .filter(a => {
+        if (isPercentageMode) {
+          return a.ticker && parseFloat(a.percentage) > 0;
+        } else {
+          return a.ticker && a.value > 0;
+        }
+      })
       .map(a => a.ticker)
       .filter((ticker, index, self) => self.indexOf(ticker) === index); // Unique tickers
 
@@ -80,15 +114,35 @@ function App() {
     try {
       console.log('Starting simulation...');
 
+      // Detect if using percentage mode
+      const isPercentageMode = portfolio.some(a => a.percentage !== undefined && a.percentage !== '');
+
       // Build simulation portfolio with statistics
       const simulationPortfolio = portfolio
-        .filter(a => a.ticker && a.value > 0)
-        .map(a => ({
-          ticker: a.ticker,
-          value: parseFloat(a.value),
-          mu: tickerStats[a.ticker].mu,
-          sigma: tickerStats[a.ticker].sigma
-        }));
+        .filter(a => {
+          if (isPercentageMode) {
+            return a.ticker && parseFloat(a.percentage) > 0;
+          } else {
+            return a.ticker && a.value > 0;
+          }
+        })
+        .map(a => {
+          // Calculate dollar value based on mode
+          let dollarValue;
+          if (isPercentageMode) {
+            const total = parseFloat(totalPortfolioValue) || 0;
+            dollarValue = (parseFloat(a.percentage) / 100) * total;
+          } else {
+            dollarValue = parseFloat(a.value);
+          }
+
+          return {
+            ticker: a.ticker,
+            value: dollarValue,
+            mu: tickerStats[a.ticker].mu,
+            sigma: tickerStats[a.ticker].sigma
+          };
+        });
 
       console.log('Simulation portfolio:', simulationPortfolio);
 
@@ -134,6 +188,8 @@ function App() {
           setPortfolio={setPortfolio}
           tickerStats={tickerStats}
           setTickerStats={setTickerStats}
+          totalPortfolioValue={totalPortfolioValue}
+          setTotalPortfolioValue={setTotalPortfolioValue}
         />
 
         {/* Spending Phases */}
