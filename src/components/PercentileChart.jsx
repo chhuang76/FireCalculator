@@ -145,7 +145,7 @@ function PercentileChart({ percentilesByYear }) {
             stroke="#667eea"
             strokeWidth={3}
             dot={false}
-            name="Median (50th)"
+            name="50th percentile (Median)"
             activeDot={{ r: 5 }}
           />
 

@@ -163,7 +163,7 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
                     ) : stats === 'error' ? (
                       <span className="error">Error</span>
                     ) : stats ? (
-                      <span className="stat-value">{(stats.mu * 100).toFixed(2)}%</span>
+                      (stats.mu * 100).toFixed(2) + '%'
                     ) : (
                       '-'
                     )}
@@ -175,7 +175,7 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }
                     ) : stats === 'error' ? (
                       <span className="error">Error</span>
                     ) : stats ? (
-                      <span className="stat-value">{(stats.sigma * 100).toFixed(2)}%</span>
+                      (stats.sigma * 100).toFixed(2) + '%'
                     ) : (
                       '-'
                     )}
