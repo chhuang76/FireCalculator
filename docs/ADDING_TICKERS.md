@@ -78,7 +78,34 @@ const CONFIG = {
 - `name`: Human-readable name (for logging)
 - `isCrypto`: (Optional) Set to `true` for cryptocurrency pairs
 
-### B. Add Validation Range (Recommended)
+### B. Add Start Date Filter (Optional)
+
+**File:** `src/lib/data-loader.js`
+
+**Location:** Lines 8-14 (near top of file)
+
+For tickers with early, non-representative data (e.g., Bitcoin's price discovery phase 2009-2016), you can exclude historical data before a specified date:
+
+```javascript
+const TICKER_START_DATES = {
+  'BTC/USD': '2017-01-01',  // Exclude early BTC price discovery phase (2009-2016)
+  'YOUR_TICKER': 'YYYY-MM-DD',  // ← Add here if needed
+};
+```
+
+**When to use:**
+- Cryptocurrency with extreme early volatility
+- Assets that underwent major structural changes
+- ETFs with insufficient early liquidity
+
+**Example:** Bitcoin before 2017 had extreme returns (10,000%+) that aren't representative of its behavior as a more mature asset. Filtering to 2017+ gives more realistic forward-looking statistics.
+
+**Note:** The script will log the filtering:
+```
+[BTC/USD] Filtered data: 189 → 96 points (from 2017-01-01)
+```
+
+### C. Add Validation Range (Recommended)
 
 **Location:** Line ~597
 
@@ -404,7 +431,18 @@ npm run dev
 'ETH/USD': { min: 0.50, max: 3.00, name: 'Ethereum' }
 ```
 
+**Start Date Filter (Optional):**
+```javascript
+// src/lib/data-loader.js
+const TICKER_START_DATES = {
+  'BTC/USD': '2017-01-01',  // Already configured
+  'ETH/USD': '2018-01-01',  // Exclude early ICO phase
+};
+```
+
 **CSV Filename:** Automatically becomes `ETH-USD.csv`
+
+**Note:** Bitcoin (BTC/USD) already has start date filtering configured to exclude 2009-2016 data, which had extreme, non-representative returns during the price discovery phase.
 
 ### Adding International ETF (e.g., VEU)
 

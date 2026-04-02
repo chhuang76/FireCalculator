@@ -6,6 +6,17 @@
  */
 
 /**
+ * Minimum start dates for certain tickers
+ * Used to exclude early, non-representative data
+ * Format: 'YYYY-MM-DD'
+ */
+const TICKER_START_DATES = {
+  'BTC/USD': '2020-01-01',  // Exclude early BTC price discovery phase
+  // Add more tickers here as needed
+  // 'ETH/USD': '2018-01-01',
+};
+
+/**
  * Parse CSV string into array of objects
  * @param {string} csvText - CSV content
  * @returns {Array<{date: string, close: number}>}
@@ -123,7 +134,22 @@ export function calculateAnnualizedVolatility(monthlyReturns) {
  * @returns {Promise<Object>} {ticker, mu, sigma, returns, priceData}
  */
 export async function loadAndProcessTicker(ticker) {
-  const priceData = await loadHistoricalData(ticker);
+  let priceData = await loadHistoricalData(ticker);
+
+  // Filter data based on minimum start date if specified
+  if (TICKER_START_DATES[ticker]) {
+    const startDate = TICKER_START_DATES[ticker];
+    const originalLength = priceData.length;
+
+    priceData = priceData.filter(point => point.date >= startDate);
+
+    console.log(`[${ticker}] Filtered data: ${originalLength} → ${priceData.length} points (from ${startDate})`);
+
+    if (priceData.length === 0) {
+      throw new Error(`No data available for ${ticker} after ${startDate}`);
+    }
+  }
+
   const returns = calculateLogReturns(priceData);
 
   const mu = calculateAnnualizedReturn(returns);

@@ -6,11 +6,13 @@ const AVAILABLE_TICKERS = [
   { value: '', label: '-- Select Ticker --' },
   { value: 'VT', label: 'VT - Vanguard Total World Stock' },
   { value: 'QQQ', label: 'QQQ - Invesco QQQ Trust' },
+  { value: 'VGT', label: 'VGT - Vanguard Information Technology Index Fund ETF' },
   { value: 'AVUV', label: 'AVUV - Avantis U.S. Small Cap Value' },
   { value: 'BND', label: 'BND - Vanguard Total Bond Market' },
+  { value: 'SHV', label: 'SHV - iShares 0-1 Year Treasury Bond ETF' },
+  { value: 'VNQ', label: 'VNQ - Vanguard Real Estate Index Fund ETF' },
   { value: 'GLD', label: 'GLD - SPDR Gold Trust' },
   { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' },
-  { value: 'SHV', label: 'SHV - iShares 0-1 Year Treasury Bond ETF' }
 ];
 
 function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, totalPortfolioValue, setTotalPortfolioValue }) {

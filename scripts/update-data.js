@@ -131,7 +131,9 @@ const CONFIG = {
     { ticker: 'BND', name: 'Vanguard Total Bond Market' },
     { ticker: 'GLD', name: 'SPDR Gold Shares' },
     { ticker: 'BTC/USD', name: 'Bitcoin', isCrypto: true },
-	{ ticker: 'SHV', name: 'iShares 0-1 Year Treasury Bond ETF' }
+	{ ticker: 'SHV', name: 'iShares 0-1 Year Treasury Bond ETF' },
+	{ ticker: 'VNQ', name: 'Vanguard Real Estate Index Fund ETF' },
+	{ ticker: 'VGT', name: 'Vanguard Information Technology Index Fund ETF' },
   ],
 
   // CSV field configuration (easy to extend in future)
