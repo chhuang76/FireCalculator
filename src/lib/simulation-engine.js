@@ -298,9 +298,19 @@ export function runSingleSimulation(params) {
     // 3. Apply growth (using exp because returns are log returns)
     portfolioBalance *= Math.exp(portfolioReturn);
 
-    // 4. Deduct inflation-adjusted spending
-    const inflationFactor = Math.pow(1 + inflationRate, year);
-    const nominalSpending = flatSpending[year - 1] * inflationFactor;
+    // 4. Deduct spending (strategy-dependent)
+    const spendingItem = flatSpending[year - 1];
+    let nominalSpending;
+
+    if (spendingItem.strategy === 'percentage') {
+      // Percentage of current portfolio balance (no inflation adjustment needed)
+      nominalSpending = portfolioBalance * (spendingItem.amount / 100);
+    } else {
+      // Fixed dollar amount (inflation-adjusted)
+      const inflationFactor = Math.pow(1 + inflationRate, year);
+      nominalSpending = spendingItem.amount * inflationFactor;
+    }
+
     portfolioBalance -= nominalSpending;
 
     // 5. Check for failure
@@ -357,8 +367,12 @@ export function runMonteCarloSimulation(config) {
   // Step 2: Flatten spending phases into array by year
   const flatSpending = [];
   phases.forEach(phase => {
+    const strategy = phase.strategy || 'fixed'; // Default to 'fixed' for backward compatibility
     for (let i = 0; i < phase.years; i++) {
-      flatSpending.push(phase.amount);
+      flatSpending.push({
+        amount: phase.amount,
+        strategy: strategy
+      });
     }
   });
   const totalYears = flatSpending.length;

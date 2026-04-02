@@ -6,7 +6,7 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
   const addPhase = () => {
     setPhases([
       ...phases,
-      { id: Date.now(), amount: 40000, years: 30 }
+      { id: Date.now(), amount: 40000, years: 30, strategy: 'fixed' }
     ]);
   };
 
@@ -29,11 +29,23 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
     ));
   };
 
+  // Update strategy
+  const updateStrategy = (id, strategy) => {
+    setPhases(phases.map(phase =>
+      phase.id === id ? { ...phase, strategy } : phase
+    ));
+  };
+
   // Calculate total years
   const totalYears = phases.reduce((sum, phase) => sum + phase.years, 0);
 
-  // Calculate total spending (nominal, without inflation)
-  const totalSpending = phases.reduce((sum, phase) => sum + (phase.amount * phase.years), 0);
+  // Calculate total spending (nominal, without inflation) - only for fixed dollar phases
+  const totalSpending = phases.reduce((sum, phase) => {
+    const strategy = phase.strategy || 'fixed';
+    return strategy === 'fixed' ? sum + (phase.amount * phase.years) : sum;
+  }, 0);
+
+  const hasPercentagePhases = phases.some(p => (p.strategy || 'fixed') === 'percentage');
 
   // Calculate inflation-adjusted first year spending
   const getInflationAdjustedAmount = (phaseIndex) => {
@@ -49,7 +61,7 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
   // Initialize with default phase if empty
   React.useEffect(() => {
     if (phases.length === 0) {
-      setPhases([{ id: Date.now(), amount: 50000, years: 30 }]);
+      setPhases([{ id: Date.now(), amount: 50000, years: 30, strategy: 'fixed' }]);
     }
   }, []);
 
@@ -57,7 +69,16 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
     <div className="spending-phases-builder">
       <div className="section-header">
         <h2>Spending Plan</h2>
-        <p>Define your spending phases (amounts will be adjusted for inflation)</p>
+        <p>Define your spending phases with withdrawal strategy</p>
+      </div>
+
+      <div className="strategy-info">
+        <div className="info-item">
+          <strong>Fixed Dollar:</strong> Withdraw a set amount each year, adjusted for inflation (e.g., $50k/year)
+        </div>
+        <div className="info-item">
+          <strong>% of Portfolio:</strong> Withdraw a percentage of your current balance each year (e.g., 4% of remaining portfolio)
+        </div>
       </div>
 
       <div className="phases-table-container">
@@ -65,6 +86,7 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
           <thead>
             <tr>
               <th>Phase</th>
+              <th>Strategy</th>
               <th>Annual Amount</th>
               <th>Duration (Years)</th>
               <th>Total Spent</th>
@@ -76,6 +98,7 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
             {phases.map((phase, index) => {
               const inflationAdjusted = getInflationAdjustedAmount(index);
               const totalForPhase = phase.amount * phase.years;
+              const strategy = phase.strategy || 'fixed'; // Default to 'fixed' for backward compatibility
 
               return (
                 <tr key={phase.id}>
@@ -84,18 +107,45 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
                   </td>
 
                   <td>
-                    <div className="input-with-prefix">
-                      <span className="prefix">$</span>
-                      <input
-                        type="number"
-                        value={phase.amount}
-                        onChange={(e) => updateAmount(phase.id, e.target.value)}
-                        placeholder="50000"
-                        min="0"
-                        step="1000"
-                        className="amount-input"
-                      />
-                    </div>
+                    <select
+                      value={strategy}
+                      onChange={(e) => updateStrategy(phase.id, e.target.value)}
+                      className="strategy-select"
+                    >
+                      <option value="fixed">Fixed Dollar</option>
+                      <option value="percentage">% of Portfolio</option>
+                    </select>
+                  </td>
+
+                  <td>
+                    {strategy === 'percentage' ? (
+                      <div className="input-with-suffix">
+                        <input
+                          type="number"
+                          value={phase.amount}
+                          onChange={(e) => updateAmount(phase.id, e.target.value)}
+                          placeholder="4"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          className="percentage-input"
+                        />
+                        <span className="suffix">%</span>
+                      </div>
+                    ) : (
+                      <div className="input-with-prefix">
+                        <span className="prefix">$</span>
+                        <input
+                          type="number"
+                          value={phase.amount}
+                          onChange={(e) => updateAmount(phase.id, e.target.value)}
+                          placeholder="50000"
+                          min="0"
+                          step="1000"
+                          className="amount-input"
+                        />
+                      </div>
+                    )}
                   </td>
 
                   <td>
@@ -111,11 +161,17 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
                   </td>
 
                   <td className="total-cell">
-                    ${totalForPhase.toLocaleString()}
+                    {strategy === 'percentage' ? (
+                      <span className="variable-note">Variable</span>
+                    ) : (
+                      `$${totalForPhase.toLocaleString()}`
+                    )}
                   </td>
 
                   <td className="inflation-cell">
-                    {index > 0 && inflationRate > 0 ? (
+                    {strategy === 'percentage' ? (
+                      <span className="variable-note">{phase.amount}% of balance</span>
+                    ) : index > 0 && inflationRate > 0 ? (
                       <>
                         ${inflationAdjusted.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                         <span className="inflation-note">
@@ -144,9 +200,24 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
           <tfoot>
             <tr className="total-row">
               <td><strong>Total</strong></td>
-              <td colSpan="2"><strong>{totalYears} years</strong></td>
-              <td><strong>${totalSpending.toLocaleString()}</strong></td>
-              <td colSpan="2"><em>(Nominal dollars, pre-inflation)</em></td>
+              <td colSpan="3"><strong>{totalYears} years</strong></td>
+              <td>
+                <strong>
+                  {hasPercentagePhases ? (
+                    <span className="variable-note">Variable</span>
+                  ) : (
+                    `$${totalSpending.toLocaleString()}`
+                  )}
+                </strong>
+              </td>
+              <td colSpan="2">
+                <em>
+                  {hasPercentagePhases
+                    ? '(% phases adjust with portfolio balance)'
+                    : '(Nominal dollars, pre-inflation)'
+                  }
+                </em>
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -175,7 +246,11 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
                     width: `${percentage}%`,
                     background: `hsl(${hue}, 70%, 65%)`
                   }}
-                  title={`Phase ${index + 1}: $${phase.amount.toLocaleString()}/yr for ${phase.years} years`}
+                  title={
+                    (phase.strategy || 'fixed') === 'percentage'
+                      ? `Phase ${index + 1}: ${phase.amount}% of portfolio for ${phase.years} years`
+                      : `Phase ${index + 1}: $${phase.amount.toLocaleString()}/yr for ${phase.years} years`
+                  }
                 >
                   <span className="timeline-label">
                     {phase.years}y
@@ -192,7 +267,10 @@ function SpendingPhasesBuilder({ phases, setPhases, inflationRate }) {
                   style={{ background: `hsl(${200 + index * 40}, 70%, 65%)` }}
                 ></div>
                 <span className="legend-text">
-                  Phase {index + 1}: ${phase.amount.toLocaleString()}/yr × {phase.years} years
+                  {(phase.strategy || 'fixed') === 'percentage'
+                    ? `Phase ${index + 1}: ${phase.amount}% of portfolio × ${phase.years} years`
+                    : `Phase ${index + 1}: $${phase.amount.toLocaleString()}/yr × ${phase.years} years`
+                  }
                 </span>
               </div>
             ))}

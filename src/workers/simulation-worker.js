@@ -204,8 +204,19 @@ function runSingleSimulation(params) {
 
     portfolioBalance *= Math.exp(portfolioReturn);
 
-    const inflationFactor = Math.pow(1 + inflationRate, year);
-    const nominalSpending = flatSpending[year - 1] * inflationFactor;
+    // Deduct spending (strategy-dependent)
+    const spendingItem = flatSpending[year - 1];
+    let nominalSpending;
+
+    if (spendingItem.strategy === 'percentage') {
+      // Percentage of current portfolio balance (no inflation adjustment needed)
+      nominalSpending = portfolioBalance * (spendingItem.amount / 100);
+    } else {
+      // Fixed dollar amount (inflation-adjusted)
+      const inflationFactor = Math.pow(1 + inflationRate, year);
+      nominalSpending = spendingItem.amount * inflationFactor;
+    }
+
     portfolioBalance -= nominalSpending;
 
     if (portfolioBalance <= 0) {
@@ -309,8 +320,12 @@ self.onmessage = function(e) {
     // Step 2: Flatten spending phases
     const flatSpending = [];
     phases.forEach(phase => {
+      const strategy = phase.strategy || 'fixed'; // Default to 'fixed' for backward compatibility
       for (let i = 0; i < phase.years; i++) {
-        flatSpending.push(phase.amount);
+        flatSpending.push({
+          amount: phase.amount,
+          strategy: strategy
+        });
       }
     });
     const totalYears = flatSpending.length;
