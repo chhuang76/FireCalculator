@@ -206,20 +206,23 @@ For offline testing, use the synthetic data generator.
 
 Full documentation is in the [`docs/`](docs/) folder:
 
-**Implementation Steps:**
-- [`docs/TDD.txt`](docs/TDD.txt) - Technical Design Document with all decisions
-- [`docs/STEP0_COMPLETE.md`](docs/STEP0_COMPLETE.md) - Data preparation
-- [`docs/STEP1_COMPLETE.md`](docs/STEP1_COMPLETE.md) - Simulation engine
-- [`docs/STEP2_COMPLETE.md`](docs/STEP2_COMPLETE.md) - Portfolio UI
-- [`docs/STEP3_COMPLETE.md`](docs/STEP3_COMPLETE.md) - Results & visualization
+**System Documentation:**
+- [`docs/TDD.md`](docs/TDD.md) - Main Technical Design Document (system overview)
+- [`docs/tdd/`](docs/tdd/) - Component-specific TDDs (simulation engine, data management, UI, etc.)
 
-**Data & API Guides:**
+**How-To Guides:**
+- [`docs/ADDING_TICKERS.md`](docs/ADDING_TICKERS.md) - How to add new asset tickers to the system
 - [`docs/DIVIDENDS.md`](docs/DIVIDENDS.md) - How dividends are included in data
-- [`docs/TESTING_REAL_DATA.md`](docs/TESTING_REAL_DATA.md) - Testing real API data
-- [`docs/SYNTHETIC_DATA_NOTES.md`](docs/SYNTHETIC_DATA_NOTES.md) - Synthetic vs real data
+- [`docs/TESTING_REAL_DATA.md`](docs/TESTING_REAL_DATA.md) - Testing with real API data
+
+**Additional Guides:**
 - [`docs/API_RESEARCH.md`](docs/API_RESEARCH.md) - API research and options
 - [`docs/DATA_PREPARATION_GUIDE.md`](docs/DATA_PREPARATION_GUIDE.md) - Data preparation guide
 - [`docs/SERVERLESS_PROXY_GUIDE.md`](docs/SERVERLESS_PROXY_GUIDE.md) - Serverless proxy setup
+- [`docs/SYNTHETIC_DATA_NOTES.md`](docs/SYNTHETIC_DATA_NOTES.md) - Synthetic vs real data
+
+**Historical:**
+- [`docs/archive/`](docs/archive/) - Step-by-step implementation logs (STEP0-3)
 
 ## Testing
 
@@ -249,4 +252,4 @@ MIT
 
 ## Contributing
 
-This is a personal project following a Test-Driven Development approach. See [`docs/TDD.txt`](docs/TDD.txt) for design decisions and implementation plan.
+This is a personal project following a Test-Driven Development approach. See [`docs/TDD.md`](docs/TDD.md) for design decisions and system architecture.

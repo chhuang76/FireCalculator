@@ -9,7 +9,8 @@ const AVAILABLE_TICKERS = [
   { value: 'AVUV', label: 'AVUV - Avantis U.S. Small Cap Value' },
   { value: 'BND', label: 'BND - Vanguard Total Bond Market' },
   { value: 'GLD', label: 'GLD - SPDR Gold Trust' },
-  { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' }
+  { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' },
+  { value: 'SHV', label: 'SHV - iShares 0-1 Year Treasury Bond ETF' }
 ];
 
 function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats }) {
