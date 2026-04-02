@@ -6,6 +6,18 @@
 
 ---
 
+## Document Structure
+
+This is the **main Technical Design Document** providing a system-level overview. For detailed component documentation, see:
+
+- **[Simulation Engine](tdd/simulation-engine.md)** - Monte Carlo algorithms, mathematical foundations
+- **[Data Management](tdd/data-management.md)** - CSV loading, alignment, API fetching
+- **[Web Worker](tdd/web-worker.md)** - Background processing, message protocol
+- **[UI Components](tdd/ui-components.md)** - React components, user experience
+- **[App Orchestration](tdd/app-orchestration.md)** - State management, validation, workflow
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -107,47 +119,22 @@ A client-side Monte Carlo retirement simulator that helps users estimate the suc
 
 ## Component Design Documents
 
-Each major component has a detailed TDD:
+Each major component has a detailed TDD. See the individual documents for comprehensive documentation including algorithms, error handling, performance characteristics, and testing strategies.
 
 ### 1. [Simulation Engine](tdd/simulation-engine.md)
-Core Monte Carlo simulation logic, correlation modeling, Cholesky decomposition.
-
-**Key Functions:**
-- `runMonteCarloSimulation()` - Main simulation orchestrator
-- `choleskyDecomposition()` - Correlation matrix decomposition
-- `generateCorrelatedReturns()` - Correlated random returns
-- `calculateStatistics()` - Percentile calculations
+Core Monte Carlo simulation logic with correlation modeling, Cholesky decomposition, and percentile calculations. Includes 15+ functions with detailed algorithm documentation and mathematical foundations.
 
 ### 2. [Data Management](tdd/data-management.md)
-Loading historical data, calculating statistics, aligning date ranges.
-
-**Key Functions:**
-- `loadAndProcessTicker()` - Load CSV and calculate μ, σ
-- `alignHistoricalReturns()` - Align overlapping dates
-- `update-data.js` - Fetch from APIs with dividend adjustment
+CSV data loading, statistical calculations, and date alignment for correlation analysis. Covers data fetching scripts and synthetic data generation.
 
 ### 3. [Web Worker](tdd/web-worker.md)
-Background execution to prevent UI freezing during simulations.
-
-**Message Protocol:**
-- `RUN_SIMULATION` → `PROGRESS` → `COMPLETE`
+Background simulation processing to prevent UI freezing. Documents the message protocol, threading model, and integration with React via custom hooks.
 
 ### 4. [UI Components](tdd/ui-components.md)
-React components for portfolio input, spending phases, results display.
-
-**Main Components:**
-- `PortfolioSetup` - Dynamic asset table
-- `SpendingPhasesBuilder` - Multi-phase spending
-- `SimulationControls` - Inflation, iterations
-- `ResultsDisplay` - Success rate, charts, snapshots
-- `PercentileChart` - Interactive Recharts visualization
+All React components including PortfolioSetup, SpendingPhasesBuilder, SimulationControls, ResultsDisplay, and PercentileChart. Covers user experience patterns and responsive design.
 
 ### 5. [App Orchestration](tdd/app-orchestration.md)
-State management, validation, workflow coordination.
-
-**Key Elements:**
-- `App.jsx` - Main state container
-- `useSimulation.js` - Web Worker integration hook
+Central state management, input validation, and workflow coordination. Documents the complete simulation execution pipeline from user input to results display.
 
 ---
 
@@ -193,24 +180,7 @@ State management, validation, workflow coordination.
    └─ Median/worst-case ending balances
 ```
 
-### Data Alignment Example
-
-```
-Input CSVs:
-  VT.csv:  2008-06 to 2024-12 (200 months)
-  QQQ.csv: 1999-03 to 2024-12 (310 months)
-  BND.csv: 2007-04 to 2024-12 (220 months)
-
-Alignment Process:
-  1. Find common dates: 2008-06 to 2024-12 (200 months)
-  2. Extract prices for overlapping period only
-  3. Recalculate log returns on aligned prices
-  4. Result: All arrays now same length (199 returns)
-
-Why Necessary:
-  - Correlation requires equal-length arrays
-  - Ensures historical relationship accuracy
-```
+**Note:** Data alignment is critical because different tickers have different historical date ranges. The system finds overlapping dates and recalculates returns to ensure equal-length arrays for correlation analysis. See [Data Management TDD](tdd/data-management.md#component-2-data-alignment-align-datajs) for detailed algorithm and examples.
 
 ---
 
@@ -240,153 +210,27 @@ Why Necessary:
 
 ## Design Decisions
 
-### 1. Client-Side Only (No Backend)
+This section covers high-level system architecture decisions. Component-specific design decisions are documented in their respective TDDs.
 
-**Decision:** Fully client-side application
+### System Architecture
 
-**Rationale:**
-- ✅ Privacy - No user data sent to servers
-- ✅ Simplicity - Deploy as static site
-- ✅ Cost - No backend infrastructure
-- ✅ Speed - Everything runs locally
+**1. Client-Side Only (No Backend)**
 
-**Trade-offs:**
-- ❌ Cannot fetch live API data from browser (CORS)
-- ✅ Solution: Pre-fetch CSV files via Node.js script
+Fully client-side application for privacy, simplicity, and zero infrastructure cost. All calculations run in the browser. Pre-fetched CSV data avoids CORS issues with live API calls.
 
-### 2. Web Worker for Simulation
+**2. Fixed Inflation (Not Stochastic)**
 
-**Decision:** Run simulations in Web Worker
+User-configurable fixed inflation rate (default 3%) for simplicity and ease of understanding. Stochastic inflation planned for Phase 2.
 
-**Rationale:**
-- ✅ Prevents UI freezing during 10k iterations
-- ✅ Better user experience (progress updates)
-- ✅ Native browser feature (no dependencies)
+### Component-Specific Decisions
 
-**Implementation:**
-- Worker runs in separate thread
-- Main thread sends parameters, receives progress
-- ~3 seconds for 10k iterations, UI stays responsive
+Detailed design rationale is documented in component-specific TDDs:
 
-### 3. Historical Correlation vs Fixed
-
-**Decision:** Use historical correlation from aligned data
-
-**Rationale:**
-- ✅ More accurate than assumed correlations
-- ✅ Captures real market relationships
-- ✅ Automatically updates with new data
-
-**Complexity:**
-- Requires data alignment (different CSV lengths)
-- Requires correlation matrix calculation
-- Requires Cholesky decomposition
-
-### 4. Log Returns vs Simple Returns
-
-**Decision:** Use log returns for simulation
-
-**Rationale:**
-- ✅ Mathematically correct for compounding
-- ✅ Normally distributed (important for Monte Carlo)
-- ✅ Time-additive: log(P3/P1) = log(P2/P1) + log(P3/P2)
-
-**Formula:**
-```
-Log Return = ln(Pt / Pt-1)
-Geometric Brownian Motion: S(t+1) = S(t) × exp(μ + σ×Z)
-```
-
-### 5. Adjusted Prices (Dividends Included)
-
-**Decision:** Use adjusted close prices with dividends
-
-**Rationale:**
-- ✅ Total return = price + dividends
-- ✅ Critical for bonds (yield is 75% of return)
-- ✅ More accurate retirement projections
-
-**Implementation:**
-- Twelve Data: `adjust=all` parameter
-- Alpha Vantage: `5. adjusted close` field
-- Validation: Check returns against expected ranges
-
-### 6. Duplicate Ticker Support
-
-**Decision:** Allow same ticker multiple times, aggregate before simulation
-
-**Rationale:**
-- ✅ Users have same ticker in multiple accounts
-- ✅ Easier than manual summation
-- ✅ Aggregation reduces correlation matrix size
-
-**Example:**
-```
-Input:  [VT: $400k, QQQ: $300k, VT: $300k]
-Aggregated: [VT: $700k, QQQ: $300k]
-Correlation matrix: 2×2 (not 3×3)
-```
-
-### 7. Fixed Inflation vs Stochastic
-
-**Decision:** Fixed inflation rate (default 3%)
-
-**Rationale:**
-- ✅ Simpler to understand
-- ✅ Good enough for initial planning
-- ✅ User can adjust rate
-
-**Future:** Add stochastic inflation (Phase 2)
-
-### 8. Annual Rebalancing
-
-**Decision:** Rebalance to target weights annually
-
-**Rationale:**
-- ✅ Common practice
-- ✅ Prevents portfolio drift
-- ✅ Simpler than quarterly/monthly
-
-**Implementation:**
-- Weights calculated from initial allocation
-- Applied to portfolio balance each year
-
-### 9. Monthly Data (Not Daily)
-
-**Decision:** Use monthly price data
-
-**Rationale:**
-- ✅ Sufficient granularity for retirement (multi-decade)
-- ✅ Smaller data files
-- ✅ Less API calls required
-- ✅ Reduces noise from daily volatility
-
-**Trade-off:**
-- ❌ Cannot model intra-month dynamics
-- ✅ Not important for long-term planning
-
-### 10. React Hooks (Not Redux)
-
-**Decision:** Use React hooks for state management
-
-**Rationale:**
-- ✅ Simpler for small-medium app
-- ✅ No boilerplate
-- ✅ Built-in to React
-
-**State Structure:**
-```javascript
-App.jsx:
-- portfolio (array)
-- phases (array)
-- tickerStats (object, shared cache)
-- inflationRate (number)
-- iterations (number)
-
-useSimulation hook:
-- isRunning, progress, results, error
-- runSimulation(), cancelSimulation()
-```
+- **Simulation Math:** Log returns, correlation matrices, Cholesky decomposition, annual rebalancing → [Simulation Engine TDD](tdd/simulation-engine.md#design-decisions)
+- **Data Handling:** Adjusted prices (total return), monthly granularity, CSV format, data alignment → [Data Management TDD](tdd/data-management.md#design-decisions)
+- **Background Processing:** Web Workers, message protocol, promise-based API → [Web Worker TDD](tdd/web-worker.md#design-decisions)
+- **State Management:** React hooks (not Redux), props drilling, computed values → [App Orchestration TDD](tdd/app-orchestration.md#design-decisions)
+- **User Interface:** Progressive disclosure, real-time validation, responsive design → [UI Components TDD](tdd/ui-components.md#design-decisions)
 
 ---
 
