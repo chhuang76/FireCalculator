@@ -8,9 +8,13 @@ const AVAILABLE_TICKERS = [
   { value: 'QQQ', label: 'QQQ - Invesco QQQ Trust' },
   { value: 'VGT', label: 'VGT - Vanguard Information Technology Index Fund ETF' },
   { value: 'AVUV', label: 'AVUV - Avantis U.S. Small Cap Value' },
+  { value: 'AVDV', label: 'AVDV - Avantis International Small Cap Value ETF' },
+  { value: '', label: '-- Bonds --' },
   { value: 'BND', label: 'BND - Vanguard Total Bond Market' },
+  { value: 'VBIL', label: 'VBIL - VANGUARD 0-3 MONTH TREASURY BILL ETF' },
   { value: 'SHV', label: 'SHV - iShares 0-1 Year Treasury Bond ETF' },
   { value: 'VNQ', label: 'VNQ - Vanguard Real Estate Index Fund ETF' },
+  { value: '', label: '-- Misc --' },
   { value: 'GLD', label: 'GLD - SPDR Gold Trust' },
   { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' },
 ];
