@@ -136,6 +136,7 @@ const CONFIG = {
 	{ ticker: 'SHV', name: 'iShares 0-1 Year Treasury Bond ETF' },
 	{ ticker: 'VNQ', name: 'Vanguard Real Estate Index Fund ETF' },
 	{ ticker: 'VGT', name: 'Vanguard Information Technology Index Fund ETF' },
+	{ ticker: 'SSO', name: 'ProShares Ultra S&P500' },
   ],
 
   // CSV field configuration (easy to extend in future)

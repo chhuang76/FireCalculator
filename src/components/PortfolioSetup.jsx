@@ -17,6 +17,7 @@ const AVAILABLE_TICKERS = [
   { value: '', label: '-- Misc --' },
   { value: 'GLD', label: 'GLD - SPDR Gold Trust' },
   { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' },
+  { value: 'SSO', label: 'SSO - ProShares Ultra S&P500' },
 ];
 
 function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, totalPortfolioValue, setTotalPortfolioValue, onSaveConfig, onLoadConfig }) {
