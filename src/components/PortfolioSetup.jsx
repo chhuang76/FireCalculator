@@ -19,10 +19,13 @@ const AVAILABLE_TICKERS = [
   { value: 'BTC/USD', label: 'BTC/USD - Bitcoin' },
 ];
 
-function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, totalPortfolioValue, setTotalPortfolioValue }) {
+function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, totalPortfolioValue, setTotalPortfolioValue, onSaveConfig, onLoadConfig }) {
   const [loadingTickers, setLoadingTickers] = useState({});
   const [errors, setErrors] = useState({});
   const [mode, setMode] = useState('dollar'); // 'dollar' or 'percentage'
+  const [configName, setConfigName] = useState('');
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   // Calculate total portfolio value and weights
   const totalValue = portfolio.reduce((sum, asset) => sum + (parseFloat(asset.value) || 0), 0);
@@ -149,12 +152,64 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, 
     return tickerStats[ticker] || null;
   };
 
+  // Handle save config
+  const handleSaveClick = () => {
+    setShowSaveDialog(true);
+  };
+
+  const handleSaveConfirm = () => {
+    onSaveConfig(configName || 'My Portfolio');
+    setShowSaveDialog(false);
+    setConfigName('');
+  };
+
+  const handleSaveCancel = () => {
+    setShowSaveDialog(false);
+    setConfigName('');
+  };
+
+  // Handle load config
+  const handleLoadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.json')) {
+        alert('Please select a valid .json config file');
+        return;
+      }
+
+      const confirmLoad = window.confirm(
+        'Loading a configuration will replace your current portfolio, spending phases, and settings.\n\nDo you want to continue?'
+      );
+
+      if (confirmLoad) {
+        onLoadConfig(file);
+      }
+
+      // Reset file input
+      e.target.value = '';
+    }
+  };
+
   // Initialize with one empty row
   useEffect(() => {
     if (portfolio.length === 0) {
       addAsset();
     }
   }, []);
+
+  // Load ticker data for any tickers that don't have stats yet
+  // This handles both manual entry and config file loading
+  useEffect(() => {
+    portfolio.forEach((asset, index) => {
+      if (asset.ticker && !tickerStats[asset.ticker] && !loadingTickers[asset.ticker] && !errors[asset.ticker]) {
+        loadTickerData(asset.ticker, index);
+      }
+    });
+  }, [portfolio]);
 
   return (
     <div className="portfolio-setup">
@@ -355,6 +410,19 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, 
         <button onClick={addAsset} className="add-btn">
           + Add Asset
         </button>
+        <button onClick={handleSaveClick} className="save-btn" title="Save configuration to file">
+          💾 Save Config
+        </button>
+        <button onClick={handleLoadClick} className="load-btn" title="Load configuration from file">
+          📁 Load Config
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
       </div>
 
       {/* Validation Banner (Percentage Mode Only) */}
@@ -406,6 +474,37 @@ function PortfolioSetup({ portfolio, setPortfolio, tickerStats, setTickerStats, 
               <span className="summary-value">
                 {new Set(portfolio.filter(a => a.ticker).map(a => a.ticker)).size}
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Config Dialog */}
+      {showSaveDialog && (
+        <div className="modal-overlay" onClick={handleSaveCancel}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Save Configuration</h3>
+            <p>Enter a name for this portfolio configuration:</p>
+            <input
+              type="text"
+              value={configName}
+              onChange={(e) => setConfigName(e.target.value)}
+              placeholder="e.g., Conservative 50/50"
+              className="config-name-input"
+              autoFocus
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSaveConfirm();
+                }
+              }}
+            />
+            <div className="modal-actions">
+              <button onClick={handleSaveCancel} className="cancel-btn">
+                Cancel
+              </button>
+              <button onClick={handleSaveConfirm} className="confirm-btn">
+                💾 Save
+              </button>
             </div>
           </div>
         </div>

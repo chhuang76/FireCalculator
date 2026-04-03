@@ -101,6 +101,104 @@ function App() {
   const validationErrors = validateInputs();
   const canRun = validationErrors.length === 0 && !isRunning;
 
+  // Save configuration to JSON file
+  const saveConfig = (configName) => {
+    const config = {
+      version: '1.0',
+      savedAt: new Date().toISOString(),
+      name: configName || 'Untitled Portfolio',
+      portfolio: {
+        mode: portfolio.some(a => a.percentage !== undefined && a.percentage !== '') ? 'percentage' : 'dollar',
+        totalValue: totalPortfolioValue,
+        assets: portfolio.map(asset => ({
+          id: asset.id,
+          ticker: asset.ticker,
+          value: asset.value || '',
+          percentage: asset.percentage || ''
+        }))
+      },
+      phases: phases.map(phase => ({
+        id: phase.id,
+        amount: phase.amount,
+        years: phase.years,
+        strategy: phase.strategy || 'fixed'
+      })),
+      settings: {
+        inflationRate,
+        iterations
+      }
+    };
+
+    // Create blob and download
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    // Format filename
+    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const safeName = (configName || 'portfolio').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    link.download = `fire-config-${safeName}-${date}.json`;
+
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Load configuration from JSON file
+  const loadConfig = (file) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const config = JSON.parse(e.target.result);
+
+        // Validate version
+        if (!config.version || config.version !== '1.0') {
+          throw new Error('Unsupported config version. Please use a valid config file.');
+        }
+
+        // Validate structure
+        if (!config.portfolio || !config.phases || !config.settings) {
+          throw new Error('Invalid config file structure. Missing required fields.');
+        }
+
+        // Validate tickers
+        const validTickers = ['', 'VT', 'QQQ', 'VGT', 'AVUV', 'AVDV', 'BND', 'VBIL', 'SHV', 'VNQ', 'GLD', 'BTC/USD'];
+        const invalidTickers = config.portfolio.assets
+          .filter(asset => asset.ticker && !validTickers.includes(asset.ticker))
+          .map(asset => asset.ticker);
+
+        if (invalidTickers.length > 0) {
+          throw new Error(`Unknown tickers in config: ${invalidTickers.join(', ')}. Please add these tickers first.`);
+        }
+
+        // Apply configuration
+        setPortfolio(config.portfolio.assets);
+        setTotalPortfolioValue(config.portfolio.totalValue || '');
+        setPhases(config.phases);
+        setInflationRate(config.settings.inflationRate);
+        setIterations(config.settings.iterations);
+
+        // Clear any previous errors
+        setAlignmentError(null);
+
+        alert(`Successfully loaded: ${config.name || 'Portfolio'}\nSaved: ${new Date(config.savedAt).toLocaleDateString()}`);
+
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        alert(`Failed to load configuration:\n\n${error.message}`);
+      }
+    };
+
+    reader.onerror = () => {
+      alert('Failed to read file. Please try again.');
+    };
+
+    reader.readAsText(file);
+  };
+
   // Run simulation
   const handleRunSimulation = async () => {
     if (!canRun) {
@@ -190,6 +288,8 @@ function App() {
           setTickerStats={setTickerStats}
           totalPortfolioValue={totalPortfolioValue}
           setTotalPortfolioValue={setTotalPortfolioValue}
+          onSaveConfig={saveConfig}
+          onLoadConfig={loadConfig}
         />
 
         {/* Spending Phases */}
