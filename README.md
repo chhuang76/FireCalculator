@@ -8,6 +8,7 @@ A stateless, client-side Monte Carlo retirement simulator built with React and V
 - ✅ Multi-asset portfolio support with correlation modeling
 - ✅ Duplicate ticker support (multiple accounts)
 - ✅ Multi-phase spending plans
+- ✅ **Two withdrawal strategies:** Fixed Dollar (inflation-adjusted) and Percentage of Portfolio
 - ✅ Historical data-based statistics
 - ✅ Real-time weight calculations
 - ✅ Responsive design
@@ -211,6 +212,7 @@ Full documentation is in the [`docs/`](docs/) folder:
 - [`docs/tdd/`](docs/tdd/) - Component-specific TDDs (simulation engine, data management, UI, etc.)
 
 **How-To Guides:**
+- [`docs/WITHDRAWAL_STRATEGIES.md`](docs/WITHDRAWAL_STRATEGIES.md) - Fixed Dollar vs. Percentage Withdrawal strategies
 - [`docs/ADDING_TICKERS.md`](docs/ADDING_TICKERS.md) - How to add new asset tickers to the system
 - [`docs/DIVIDENDS.md`](docs/DIVIDENDS.md) - How dividends are included in data
 - [`docs/TESTING_REAL_DATA.md`](docs/TESTING_REAL_DATA.md) - Testing with real API data
